@@ -534,7 +534,6 @@ def fig8():
 
     delta = ver['learned_mask']['delay_normalized']
     beta = ver['learned_mask']['bandwidth']
-    delay_ms = ver['learned_mask']['delay_ms']
 
     T, S = 256, 50
     i = np.arange(T)[:, None]
@@ -547,6 +546,9 @@ def fig8():
 
     syn = ver.get('synthetic', [])
     offsets = sorted({s['target_offset'] for s in syn})
+
+    history_path = os.path.join(RESULTS, 'learned_structure_history.json')
+    history = json.load(open(history_path)) if os.path.exists(history_path) else None
 
     fig = plt.figure(figsize=(6.6, 4.6))
     gs = fig.add_gridspec(2, 2, hspace=0.62, wspace=0.42,
@@ -571,26 +573,53 @@ def fig8():
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
 
     ax = fig.add_subplot(gs[1, 0])
-    ax.hist(delays, bins=8, color=BLUE, alpha=0.85)
-    ax.axvline(0.15, color=RED, lw=1.1, ls=':')
-    ax.axvline(delta, color=RED, lw=1.1)
-    ax.set_xlabel(r'Learned delay $\delta$ (normalized)' + '\n'
-                  + f'(c) Real data: $\\delta$={delta:.3f} '
-                  + f'({delay_ms:.0f} ms)', fontsize=7.2)
-    ax.set_ylabel('Count')
+    if history is not None:
+        n = int(np.argmin(history['inner_loss'])) + 1
+        ep = np.arange(1, n + 1)
+        curve = np.array(history['delay'][1:n + 1])
+        ax.plot(ep, curve, color=BLUE, lw=1.2, label='Learned delay')
+        ax.axhline(curve[-1], color=RED, ls='--', lw=1.0,
+                   label=f'Final = {curve[-1]:.3f}')
+        ax2 = ax.twinx()
+        ax2.plot(ep, history['temperature'][:n], color=GREEN, ls=':', lw=1.0)
+        ax2.set_ylabel('Temperature', color=GREEN, fontsize=7)
+        ax2.tick_params(axis='y', colors=GREEN, labelsize=6.5)
+        ax.legend(fontsize=5.8, loc='upper right', frameon=False)
+    else:
+        ax.hist(delays, bins=8, color=BLUE, alpha=0.85)
+        ax.axvline(0.15, color=RED, lw=1.1, ls=':')
+        ax.axvline(delta, color=RED, lw=1.1)
+    if history is not None:
+        ax.set_xlabel('Epoch\n(c) Delay evolution during training',
+                      fontsize=7.2)
+    else:
+        ax.set_xlabel(r'Learned delay $\delta$ (normalized)'
+                      + '\n(c) Real data', fontsize=7.2)
+    ax.set_ylabel(r'Learned $\delta$')
 
     ax = fig.add_subplot(gs[1, 1])
-    means = [np.mean([s['delta_learned'] for s in syn
-                      if s['target_offset'] == o]) for o in offsets]
-    stds = [np.std([s['delta_learned'] for s in syn
-                    if s['target_offset'] == o]) for o in offsets]
-    ax.bar(range(len(offsets)), means, yerr=stds, color=ORANGE, capsize=2)
-    ax.set_xticks(range(len(offsets)))
-    ax.set_xticklabels([f'{o:.2f}' for o in offsets])
-    ax.set_ylim(0, 0.2)
-    ax.set_xlabel('Generative target offset\n(d) Synthetic control',
-                  fontsize=7.5)
-    ax.set_ylabel(r'Learned $\delta$')
+    if history is not None:
+        curve = np.array(history['bandwidth'][1:n + 1])
+        ax.plot(ep, curve, color=BLUE, lw=1.2, label='Learned bandwidth')
+        ax.axhline(curve[-1], color=RED, ls='--', lw=1.0,
+                   label=f'Final = {curve[-1]:.3f}')
+        ax.legend(fontsize=5.8, loc='lower right', frameon=False)
+    else:
+        means = [np.mean([s['delta_learned'] for s in syn
+                          if s['target_offset'] == o]) for o in offsets]
+        stds = [np.std([s['delta_learned'] for s in syn
+                        if s['target_offset'] == o]) for o in offsets]
+        ax.bar(range(len(offsets)), means, yerr=stds, color=ORANGE, capsize=2)
+        ax.set_xticks(range(len(offsets)))
+        ax.set_xticklabels([f'{o:.2f}' for o in offsets])
+        ax.set_ylim(0, 0.2)
+    if history is not None:
+        ax.set_xlabel('Epoch\n(d) Bandwidth evolution during training',
+                      fontsize=7.2)
+    else:
+        ax.set_xlabel('Generative target offset\n(d) Synthetic control',
+                      fontsize=7.5)
+    ax.set_ylabel(r'Learned $\beta$')
 
     for ax in fig.axes:
         ax.tick_params(labelsize=7, pad=2)

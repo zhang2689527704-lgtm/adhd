@@ -19,6 +19,7 @@ Access-2026-39609). The model is called CausalEEGNet in the manuscript and
 | `run_lagged.py` | Lagged directional analysis (16 Hz, four lags, blocked CV, circular-shift permutations), both directions. |
 | `verify_mask.py` | Verifies that attention on temporally prohibited positions is exactly zero for both mask types, saves per-sample attention profiles for Fig. 6, and runs the synthetic delay-identifiability control. |
 | `run_channel_zeroout.py` | Per-channel zero-out importance across folds. |
+| `run_structure_history.py` | Records the learned delay, bandwidth, and temperature at every epoch of one representative run for Fig. 8(c,d). |
 | `summarize_results.py` | Aggregates all runs into `results/summary.json`, including the masked baselines and the `LearnedMaskNet` alias. |
 | `emit_numbers.py` | Emits `results/numbers.tex` from the registry; optionally audits a local manuscript tree if present. |
 | `make_figures.py` | Generates `figures/Fig1.pdf`–`Fig13.pdf` from the registry. |
@@ -47,6 +48,7 @@ python run_ablations.py --variants PermutedEEG,BandTheta,BandAlpha,BandBeta,LTC_
 python verify_mask.py
 python run_lagged.py
 python run_channel_zeroout.py
+python run_structure_history.py
 python summarize_results.py
 python emit_numbers.py
 python make_figures.py
