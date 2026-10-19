@@ -202,11 +202,12 @@ def main():
             vals = [x['delta_learned'] for x in syn
                     if x['target_offset'] == off]
             bws = [x['bandwidth'] for x in syn if x['target_offset'] == off]
-            L['SynOff' + word] = f'{off:.2f}'
-            L['SynOff' + word + 'Delta'] = fmt(sum(vals) / len(vals))
-            L['SynOff' + word + 'DeltaLo'] = fmt(min(vals))
-            L['SynOff' + word + 'DeltaHi'] = fmt(max(vals))
-            L['SynOff' + word + 'Beta'] = fmt(sum(bws) / len(bws))
+            true = off - 1.0
+            learned = sum(vals) / len(vals)
+            L['SynTrue' + word] = f'{true:.2f}'
+            L['SynLearned' + word] = fmt(learned)
+            L['SynError' + word] = fmt(abs(learned - true))
+            L['SynBeta' + word] = fmt(sum(bws) / len(bws))
 
     import numpy as np
     for k in ['LagN', 'LagEegGazeMedian', 'LagEegGazeSig', 'LagGazeEegMedian',
