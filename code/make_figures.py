@@ -65,16 +65,35 @@ def panel_caption(ax, text, y=-0.28):
 
 
 def fig1():
-    n_adhd, n_ctrl, n_undet = 72, 38, 16
-    fig, ax = plt.subplots(figsize=(3.2, 2.9))
-    sizes = [n_adhd, n_ctrl, n_undet]
-    labels = [f'ADHD\n(n={n_adhd})', f'Control\n(n={n_ctrl})',
-              f'Undetermined\n(n={n_undet})']
-    ax.pie(sizes, labels=labels, colors=[ORANGE, BLUE, GRAY],
-           autopct='%1.0f%%', startangle=90, counterclock=False,
-           wedgeprops=dict(edgecolor='white', linewidth=1),
-           textprops={'fontsize': 7.5})
-    ax.axis('equal')
+    rows = list(csv.DictReader(open(os.path.join(
+        RESULTS, 'participant_demographics.csv'))))
+    groups = [('ADHD', 'yes', ORANGE), ('Control', 'no', BLUE),
+              ('Undetermined', 'undetermined', GRAY)]
+    counts = [sum(1 for r in rows if r['diagnosed'] == g)
+              for _, g, _ in groups]
+    ages = [[float(r['age']) for r in rows if r['diagnosed'] == g]
+            for _, g, _ in groups]
+
+    fig, axes = plt.subplots(1, 2, figsize=(3.35, 2.4),
+                             gridspec_kw={'width_ratios': [1.1, 1]})
+    tick = ['ADHD', 'Control', 'Undet.']
+    axes[0].bar(range(3), counts, color=[c for _, _, c in groups])
+    for i, c in enumerate(counts):
+        axes[0].text(i, c + 1, str(c), ha='center', fontsize=8)
+    axes[0].set_xticks(range(3))
+    axes[0].set_xticklabels(tick, fontsize=6.5, rotation=30, ha='right')
+    axes[0].set_ylabel('Participants')
+    axes[0].set_xlabel(f'(a) Diagnostic group (n={sum(counts)})', fontsize=7)
+
+    bp = axes[1].boxplot(ages, patch_artist=True, widths=0.5)
+    for patch, (_, _, c) in zip(bp['boxes'], groups):
+        patch.set_facecolor(c)
+        patch.set_alpha(0.6)
+    axes[1].set_xticks(range(1, 4))
+    axes[1].set_xticklabels(tick, fontsize=6.5, rotation=30, ha='right')
+    axes[1].set_ylabel('Age (years)')
+    axes[1].set_xlabel('(b) Age by group', fontsize=7)
+    fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig1.pdf'))
     plt.close(fig)
 
