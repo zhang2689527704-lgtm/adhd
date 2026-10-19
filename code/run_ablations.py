@@ -95,8 +95,13 @@ def band_filter_cache(cache, band):
     lo, hi = band
     fs = 128.0
     b, a = signal.butter(4, [lo / (fs / 2), hi / (fs / 2)], btype='band')
-    filt = signal.filtfilt(b, a, cache['eeg'].astype(np.float64), axis=0).astype(np.float32)
-    return filt
+    out = np.empty_like(cache['eeg'])
+    offs = cache['offsets']
+    for k in range(len(offs) - 1):
+        seg = cache['eeg'][offs[k]:offs[k + 1]]
+        out[offs[k]:offs[k + 1]] = signal.filtfilt(
+            b, a, seg.astype(np.float64), axis=0).astype(np.float32)
+    return out
 
 
 def make_folds(cache):

@@ -4,7 +4,8 @@ CausalEEGNet is implemented as TempAlignEEGNet (fixed proportional temporal
 mask); TempStructNet is the learned-mask variant. The learned mask is trained
 with a straight-through Gumbel-Softmax sample and evaluated as
 G = 1[soft_mask > 0.5]; prohibited positions receive an additive -1e9 penalty,
-which underflows to exactly zero attention after softmax.
+which underflows to exactly zero attention after softmax. The earliest gaze
+sample remains attendable in every row, so no query row is fully masked.
 The delay parameter delta is reported in normalized window units; its
 conversion to milliseconds is delta * window_sec * 1000.
 """
@@ -276,7 +277,12 @@ class TempStructNet(nn.Module):
             g = y[..., 1]
         else:
             g = (p > 0.5).float()
-        return g
+        # Keep the earliest gaze sample attendable in every row; otherwise a
+        # fully blocked row degenerates to a uniform softmax over prohibited
+        # positions.
+        force_first = torch.zeros_like(g)
+        force_first[:, 0] = 1.0
+        return torch.maximum(g, force_first)
 
     def forward(self, eeg, gaze_context, gaze_mask=None, return_mask=False):
         B, _, _ = eeg.shape
