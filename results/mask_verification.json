@@ -13359,6 +13359,27 @@
    "epochs": 10
   },
   {
+   "target_offset": 1.1,
+   "seed": 0,
+   "delta_learned": 0.14247697591781616,
+   "bandwidth": 0.8746517300605774,
+   "epochs": 31
+  },
+  {
+   "target_offset": 1.1,
+   "seed": 1,
+   "delta_learned": 0.14593328535556793,
+   "bandwidth": 0.8471680879592896,
+   "epochs": 21
+  },
+  {
+   "target_offset": 1.1,
+   "seed": 2,
+   "delta_learned": 0.14473946392536163,
+   "bandwidth": 0.8534791469573975,
+   "epochs": 20
+  },
+  {
    "target_offset": 1.15,
    "seed": 0,
    "delta_learned": 0.15034455060958862,
@@ -13378,6 +13399,27 @@
    "delta_learned": 0.15031176805496216,
    "bandwidth": 0.8047828078269958,
    "epochs": 14
+  },
+  {
+   "target_offset": 1.2,
+   "seed": 0,
+   "delta_learned": 0.1524956375360489,
+   "bandwidth": 0.7911011576652527,
+   "epochs": 27
+  },
+  {
+   "target_offset": 1.2,
+   "seed": 1,
+   "delta_learned": 0.15277312695980072,
+   "bandwidth": 0.7813575863838196,
+   "epochs": 30
+  },
+  {
+   "target_offset": 1.2,
+   "seed": 2,
+   "delta_learned": 0.1508103907108307,
+   "bandwidth": 0.8009195327758789,
+   "epochs": 33
   },
   {
    "target_offset": 1.25,

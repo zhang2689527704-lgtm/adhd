@@ -196,7 +196,7 @@ def main():
     if syn:
         L['SynDeltaMin'] = fmt(min(x['delta_learned'] for x in syn))
         L['SynDeltaMax'] = fmt(max(x['delta_learned'] for x in syn))
-        words = ['One', 'Two', 'Three']
+        words = ['One', 'Two', 'Three', 'Four', 'Five']
         offsets = sorted({x['target_offset'] for x in syn})
         for word, off in zip(words, offsets):
             vals = [x['delta_learned'] for x in syn
