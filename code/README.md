@@ -17,7 +17,7 @@ Access-2026-39609). The model is called CausalEEGNet in the manuscript and
 | `run_extra_models.py` | Masked LSTM and masked Transformer baselines (same EEG towers, CausalEEGNet's temporal mask). |
 | `run_ablations.py` | No-mask, frontal-excluded, learned-mask, single-band, EEG-scrambled, target-shuffled, and parameter-matched variants. |
 | `run_lagged.py` | Lagged directional analysis (16 Hz, four lags, blocked CV, circular-shift permutations), both directions. |
-| `verify_mask.py` | Verifies that attention on temporally prohibited positions is exactly zero for both mask types, and runs the synthetic delay-identifiability control. |
+| `verify_mask.py` | Verifies that attention on temporally prohibited positions is exactly zero for both mask types, saves per-sample attention profiles for Fig. 6, and runs the synthetic delay-identifiability control. |
 | `run_channel_zeroout.py` | Per-channel zero-out importance across folds. |
 | `summarize_results.py` | Aggregates all runs into `results/summary.json`, including the masked baselines and the `LearnedMaskNet` alias. |
 | `emit_numbers.py` | Emits `results/numbers.tex` from the registry; optionally audits a local manuscript tree if present. |

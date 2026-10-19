@@ -442,28 +442,46 @@ def fig5():
 
 
 def fig6():
-    ver = load('mask_verification.json')
-    attn = np.array(ver['fixed_mask']['mean_attention'])
+    profile_path = os.path.join(RESULTS, 'attention_profiles.json')
+    if os.path.exists(profile_path):
+        d = json.load(open(profile_path))
+        attn = np.array(d['mean_attention'])
+        samples = np.array(d['sample_profiles'])
+        mean_prof = np.array(d['mean_profile'])
+    else:
+        attn = np.array(load('mask_verification.json')['fixed_mask']['mean_attention'])
+        samples = None
+        mean_prof = attn.max(axis=1)
+
     fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.7),
                              gridspec_kw={'width_ratios': [1.4, 1]})
     ax = axes[0]
+    vmax = np.percentile(attn[attn > 0], 99)
     im = ax.imshow(attn.T, aspect='auto', origin='lower', cmap='viridis',
-                   extent=[0, 256, 0, 50])
+                   extent=[0, 256, 0, 50], vmin=0, vmax=vmax)
     T, S = 256, 50
     j = np.arange(S)
     ax.plot(j * T / S, j, 'r--', lw=1, label='temporal boundary $j=iS/T$')
     ax.set_xlabel('EEG position $i$ (time)')
     ax.set_ylabel('Gaze position $j$ (time)')
     ax.set_title('(a) Mean cross-attention weights', fontsize=9)
-    ax.legend(fontsize=6.5, loc='upper left')
+    ax.legend(fontsize=6.0, loc='upper left')
     plt.colorbar(im, ax=ax, fraction=0.046)
 
     ax = axes[1]
-    prof = attn.max(axis=1)
-    ax.plot(np.arange(256) / 256 * 2.0, prof, color=BLUE, lw=1)
+    t = np.arange(256) / 128.0
+    if samples is not None:
+        for k, row in enumerate(samples):
+            ax.plot(t, row, color=plt.cm.tab10(k), lw=0.8, alpha=0.7,
+                    label=f'Sample {k + 1}')
+    ax.plot(t, mean_prof, color='k', lw=1.3, label='Mean')
+    ax.set_yscale('log')
+    ax.set_ylim(1e-2, 1.2)
     ax.set_xlabel('Time within window (s)')
-    ax.set_ylabel('Max attention weight')
-    ax.set_title('(b) Attention concentration over time', fontsize=9)
+    ax.set_ylabel('Max attention weight (log scale)')
+    ax.set_title('(b) Per-sample max attention', fontsize=9)
+    ax.legend(fontsize=5.6, loc='upper right', frameon=False,
+              handlelength=1.4, labelspacing=0.25)
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig6.pdf'))
     plt.close(fig)

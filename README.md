@@ -22,7 +22,7 @@ two refer to the same model. Figure labels use CausalEEGNet.
 | Path | Contents |
 |---|---|
 | `code/` | Data pipeline, models, baselines, training/evaluation, statistical analysis, figure generation. See `code/README.md`. |
-| `results/` | Per-fold/per-seed metrics (`results_main.json`, `results_ablation.json`, `extra_models_cv.json`), the aggregated `summary.json` with confidence intervals and paired tests, mask verification, lagged analysis, channel importance, group analysis, training history, and the LaTeX macros (`numbers.tex`) used by the manuscript. |
+| `results/` | Per-fold/per-seed metrics (`results_main.json`, `results_ablation.json`, `extra_models_cv.json`), the aggregated `summary.json` with confidence intervals and paired tests, mask verification, per-sample attention profiles for Fig. 6, lagged analysis, channel importance, group analysis, training history, and the LaTeX macros (`numbers.tex`) used by the manuscript. |
 | `predictions/` | Held-out per-window predictions for every model/fold/seed (`.npz`, keys: `targets`, `preds`, `pids`). |
 | `figures/` | Final manuscript figures, `Fig1.pdf`–`Fig13.pdf`. |
 

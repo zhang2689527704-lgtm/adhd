@@ -48,6 +48,9 @@ def check_fixed_mask(model, ds, device, n_batches=8):
     blocked_ref = _proportional_mask(256, 50, device).unsqueeze(0).unsqueeze(0)
     max_blocked, total_mass, n = 0.0, 0.0, 0
     mean_attn = None
+    sample_profiles = []
+    profile_sum = np.zeros(256, dtype=np.float64)
+    n_prof = 0
     for bi, b in enumerate(loader):
         out = model(b['eeg'].to(device), b['gaze'].to(device), b['mask'].to(device))
         w = out['attn_weights'][-1]  # (B, H, 256, 50)
@@ -57,12 +60,20 @@ def check_fixed_mask(model, ds, device, n_batches=8):
         n += w.shape[0]
         mw = w.mean(dim=(0, 1)).cpu().numpy()
         mean_attn = mw if mean_attn is None else mean_attn + mw
+        prof = w.max(dim=-1).values.mean(dim=1).cpu().numpy()  # (B, 256)
+        for row in prof:
+            if len(sample_profiles) < 5:
+                sample_profiles.append([float(x) for x in row])
+        profile_sum += prof.sum(axis=0)
+        n_prof += prof.shape[0]
         if bi + 1 >= n_batches:
             break
     mean_attn /= max(1, min(n_batches, bi + 1))
     return {'max_attention_on_blocked': max_blocked,
             'mean_row_mass': total_mass / max(n, 1),
-            'mean_attention': mean_attn.tolist()}
+            'mean_attention': mean_attn.tolist(),
+            'sample_profiles': sample_profiles,
+            'mean_profile': (profile_sum / max(n_prof, 1)).tolist()}
 
 
 @torch.no_grad()
@@ -138,13 +149,12 @@ def synthetic_recovery(seeds=(0, 1, 2), target_offsets=(1.05, 1.15, 1.25)):
                 return len(self.tgt)
 
             def __getitem__(self, k):
-                e = (self.eeg[k] - self.em[0]) / self.es[0]
-                return {'eeg': torch.from_numpy(e),
-                        'gaze': torch.from_numpy(
-                            np.stack([self.gaze[k], self.gaze[k]], -1)),
+                e = ((self.eeg[k] - self.em[0]) / self.es[0]).astype(np.float32)
+                g = np.stack([self.gaze[k], self.gaze[k]], -1).astype(np.float32)
+                t = ((self.tgt[k] - self.tm) / self.ts).astype(np.float32)
+                return {'eeg': torch.from_numpy(e), 'gaze': torch.from_numpy(g),
                         'mask': torch.ones(S, dtype=torch.bool),
-                        'target': torch.from_numpy(
-                            ((self.tgt[k] - self.tm) / self.ts).astype(np.float32))}
+                        'target': torch.from_numpy(t)}
 
         tr_ds = SynDS(win_eeg[:n_train], gaze_ctx[:n_train], targets[:n_train])
         in_ds = SynDS(win_eeg[n_train:], gaze_ctx[n_train:], targets[n_train:])
@@ -195,6 +205,14 @@ def main():
 
     print('synthetic delay recovery ...')
     report['synthetic'] = synthetic_recovery()
+
+    profiles = {k: report['fixed_mask'][k] for k in
+                ('max_attention_on_blocked', 'mean_row_mass',
+                 'mean_attention', 'sample_profiles', 'mean_profile',
+                 'train_epochs')}
+    with open(os.path.join(RESULTS, 'attention_profiles.json'), 'w') as f:
+        json.dump(profiles, f, indent=1)
+    print('saved', os.path.join(RESULTS, 'attention_profiles.json'))
 
     with open(os.path.join(RESULTS, 'mask_verification.json'), 'w') as f:
         json.dump(report, f, indent=1)
