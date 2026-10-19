@@ -250,10 +250,12 @@ def fig3():
     panel_caption(ax, '(b) Validation RMSE', y=-0.30)
 
     ax = axes[2]
-    ax.plot(ep, h['inner_corr_col'], color=BLUE, lw=1.3)
+    ax.plot(ep, h['inner_corr_col'], color=BLUE, lw=1.3, label=r'$\Delta$col')
+    ax.plot(ep, h['inner_corr_row'], color=ORANGE, lw=1.3, label=r'$\Delta$row')
     ax.axvline(best, color=GRAY, ls=':', lw=0.9)
     ax.axhline(0, color='k', lw=0.5)
-    ax.set_ylabel(r'$r_{\Delta col}$')
+    ax.set_ylabel('Pearson $r$')
+    ax.legend(fontsize=6.0, loc='lower left', frameon=False)
     panel_caption(ax, '(c) Prediction correlation over epochs', y=-0.30)
 
     for ax in axes:
