@@ -1,14 +1,13 @@
-"""Baseline models for the revision: identical inputs (EEG + gaze) for all
-models, identical fusion module (standard unmasked cross-attention) and
-identical prediction head, so that differences reflect the EEG temporal
-encoder and the presence/absence of the temporal mask, not input availability.
+"""Neural baselines with identical inputs (EEG + gaze), fusion module
+(unmasked cross-attention), and prediction head. Differences therefore reflect
+the EEG encoder and the temporal mask rather than input availability.
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models_v2 import GazeStateEncoder, TemporalAttentionHead, count_params
+from models_v2 import GazeStateEncoder, TemporalAttentionHead
 
 
 class FusionBaseline(nn.Module):

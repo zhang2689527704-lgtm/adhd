@@ -1,24 +1,17 @@
-"""Revised models for the IEEE Access resubmission.
+"""CausalEEGNet and its variants.
 
-Renaming and fixes:
-  - CausalEEGNet -> TempAlignEEGNet (fixed proportional temporal mask)
-  - CausalDiscoveryNet -> TempStructNet (learned temporal mask, corrected math)
-  - Modality-ablation variants of the same architecture: gaze-only, EEG-only
-  - Corrected learnable mask:
-      training:  G = straight-through hard Gumbel-Softmax sample
-      eval:      G = 1[soft_mask > 0.5]   (deterministic binary mask)
-      penalty:   M = (1 - G) * (-1e9) added to attention logits so that
-                 prohibited positions receive exactly zero attention after
-                 softmax (exp(-1e9) == 0 in float32/float64).
+CausalEEGNet is implemented as TempAlignEEGNet (fixed proportional temporal
+mask); TempStructNet is the learned-mask variant. The learned mask is trained
+with a straight-through Gumbel-Softmax sample and evaluated as
+G = 1[soft_mask > 0.5]; prohibited positions receive an additive -1e9 penalty,
+which underflows to exactly zero attention after softmax.
 The delay parameter delta is reported in normalized window units; its
 conversion to milliseconds is delta * window_sec * 1000.
 """
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Optional, Tuple
 
 MASK_NEG = -1e9
 

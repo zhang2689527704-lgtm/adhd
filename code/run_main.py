@@ -20,7 +20,6 @@ import json
 import os
 import sys
 import time
-from collections import defaultdict
 
 import numpy as np
 import torch
@@ -33,12 +32,15 @@ from models_v2 import (TempAlignEEGNet, TempAlignGazeOnly, TempAlignEEGOnly,
                        count_params)
 from baselines_v2 import (build_lstm_dual, build_transformer_dual,
                           build_ltc_dual, build_wavelet_dual)
-from metrics import evaluate_predictions, per_participant_metrics
+from metrics import evaluate_predictions
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CACHE = os.path.join(HERE, '..', 'cache')
-OUT = os.path.join(HERE, '..', 'experiments')
-os.makedirs(OUT, exist_ok=True)
+ROOT = os.path.join(HERE, '..')
+CACHE = os.path.join(ROOT, 'cache')
+RESULTS = os.path.join(ROOT, 'results')
+PREDICTIONS = os.path.join(ROOT, 'predictions')
+os.makedirs(RESULTS, exist_ok=True)
+os.makedirs(PREDICTIONS, exist_ok=True)
 
 SEEDS = [42, 43, 44]
 N_FOLDS = 5
@@ -62,7 +64,6 @@ class WindowDS(Dataset):
                  tgt_mean=None, tgt_std=None, augment=False, noise=0.05):
         self.c = cache
         self.idx = idx
-        # precompute window slices lazily via offsets
         self.augment = augment
         self.noise = noise
         eegs = np.stack([self._eeg(i) for i in idx])  # (N, 256, 14)
@@ -244,7 +245,7 @@ def main():
     seeds = [int(x) for x in args.seeds.split(',')]
     model_names = args.models.split(',')
 
-    results_path = os.path.join(OUT, f'results_{args.tag}.json')
+    results_path = os.path.join(RESULTS, f'results_{args.tag}.json')
     results = json.load(open(results_path)) if os.path.exists(results_path) else {}
 
     for name in model_names:
@@ -266,7 +267,6 @@ def main():
             tr_idx = tr_idx_all[~inner_mask]
 
             for seed in seeds:
-                key = (fold, seed)
                 if any(r['fold'] == fold and r['seed'] == seed for r in results[name]['runs']):
                     print(f'  skip {name} fold{fold} seed{seed}')
                     continue
@@ -289,7 +289,8 @@ def main():
                       f"ep={ep} ({m['time']:.0f}s)")
 
                 np.savez_compressed(
-                    os.path.join(OUT, f'preds_{args.tag}_{name}_f{fold}_s{seed}.npz'),
+                    os.path.join(PREDICTIONS,
+                                 f'preds_{args.tag}_{name}_f{fold}_s{seed}.npz'),
                     targets=targets, preds=preds, pids=pids)
                 with open(results_path, 'w') as f:
                     json.dump(results, f, indent=1)
@@ -308,7 +309,8 @@ def main():
                 m.update({'fold': fold, 'seed': 0, 'name': bname})
                 results['StatBaselines']['runs'].append(m)
                 np.savez_compressed(
-                    os.path.join(OUT, f'preds_{args.tag}_StatBaselines_{bname}_f{fold}.npz'),
+                    os.path.join(PREDICTIONS,
+                                 f'preds_{args.tag}_StatBaselines_{bname}_f{fold}.npz'),
                     targets=tgt, preds=pred, pids=cache['pid'][te_idx])
                 print(f"  StatBaselines {bname} f{fold}: r_col={m['r_col']:.3f} "
                       f"R2_col={m['R2_col']:.3f}")

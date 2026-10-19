@@ -1,9 +1,11 @@
-"""Generate every manuscript figure from the experiment JSON/registry.
+"""Generate the manuscript figures from the result registries.
 
-Usage: python make_figures.py [figure names...]
-Figures map to manuscript numbers as documented in build_manuscript.py.
+Usage:
+  python make_figures.py            # all figures
+  python make_figures.py fig4 fig7  # selected figures
 """
 
+import csv
 import glob
 import json
 import os
@@ -13,29 +15,33 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 plt.rcParams.update({
-    'font.family': 'serif', 'font.size': 9,
+    'font.family': 'serif', 'font.size': 8,
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 120, 'savefig.dpi': 300, 'savefig.bbox': 'tight',
 })
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EXP = os.path.join(HERE, '..', 'experiments')
-FIG = os.path.join(HERE, '..', 'figures')
-CACHE = os.path.join(HERE, '..', 'cache')
-os.makedirs(FIG, exist_ok=True)
+ROOT = os.path.join(HERE, '..')
+RESULTS = os.path.join(ROOT, 'results')
+PREDICTIONS = os.path.join(ROOT, 'predictions')
+FIGURES = os.path.join(ROOT, 'figures')
+os.makedirs(FIGURES, exist_ok=True)
 
-BLUE, ORANGE, GREEN, RED, GRAY = '#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8C8C8C'
-
-
-def load_summary():
-    with open(os.path.join(EXP, 'summary.json')) as f:
-        return json.load(f)
+BLUE, ORANGE, GREEN, RED, GRAY, PURPLE = (
+    '#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8C8C8C', '#8172B3')
+LIGHTGRAY = '#d9d9d9'
 
 
-def seed_avg_preds(tag, name):
-    files = sorted(glob.glob(os.path.join(EXP, f'preds_{tag}_{name}_f*_s*.npz')))
+def load(name):
+    return json.load(open(os.path.join(RESULTS, name)))
+
+
+def seed_avg_preds(tag='main', name='TempAlignEEGNet'):
+    files = sorted(glob.glob(os.path.join(
+        PREDICTIONS, f'preds_{tag}_{name}_f*_s*.npz')))
     if not files:
         return None
     per_seed = {}
@@ -53,135 +59,389 @@ def seed_avg_preds(tag, name):
     return {'pids': ref['pids'], 'targets': ref['targets'], 'preds': preds}
 
 
-# ---------------------------------------------------------------- Fig 1
-def fig1_demographics():
-    meta = json.load(open(os.path.join(CACHE, 'meta.json')))
-    import pandas as pd
-    df = pd.DataFrame(meta['participants'])
-    groups = [('ADHD', 'yes', ORANGE), ('Control', 'no', BLUE), ('Undetermined', 'undetermined', GRAY)]
-    counts = [int((df['diagnosed'] == g).sum()) for _, g, _ in groups]
-    ages = [df[df['diagnosed'] == g]['age'].values for _, g, _ in groups]
+def panel_caption(ax, text, y=-0.28):
+    ax.text(0.5, y, text, transform=ax.transAxes, ha='center', va='top',
+            fontsize=8)
 
-    fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.6))
-    axes[0].bar([g for g, _, _ in groups], counts,
-                color=[c for _, _, c in groups])
-    for i, c in enumerate(counts):
-        axes[0].text(i, c + 1, str(c), ha='center', fontsize=9)
-    axes[0].set_ylabel('Participants')
-    axes[0].set_title('(a) Diagnostic group composition (n=126)', fontsize=9)
 
-    bp = axes[1].boxplot(ages, labels=[g for g, _, _ in groups], patch_artist=True, widths=0.5)
-    for patch, (_, _, c) in zip(bp['boxes'], groups):
-        patch.set_facecolor(c)
-        patch.set_alpha(0.6)
-    axes[1].set_ylabel('Age (years)')
-    axes[1].set_title('(b) Age distribution by group', fontsize=9)
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig1_demographics.pdf'))
+def fig1():
+    n_adhd, n_ctrl, n_undet = 72, 38, 16
+    fig, ax = plt.subplots(figsize=(3.2, 2.9))
+    sizes = [n_adhd, n_ctrl, n_undet]
+    labels = [f'ADHD\n(n={n_adhd})', f'Control\n(n={n_ctrl})',
+              f'Undetermined\n(n={n_undet})']
+    ax.pie(sizes, labels=labels, colors=[ORANGE, BLUE, GRAY],
+           autopct='%1.0f%%', startangle=90, counterclock=False,
+           wedgeprops=dict(edgecolor='white', linewidth=1),
+           textprops={'fontsize': 7.5})
+    ax.axis('equal')
+    fig.savefig(os.path.join(FIGURES, 'Fig1.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 4
-ORDER_MAIN = ['TempAlignEEGNet', 'GazeOnly', 'EEGOnly', 'LSTM', 'Transformer',
-              'LTC', 'WaveletTransformer', 'RidgeGaze', 'PersistenceTrend',
-              'PersistenceZero', 'MeanPredictor']
-LABELS = {'TempAlignEEGNet': 'TempAlign\n(full)', 'GazeOnly': 'Gaze-only',
-          'EEGOnly': 'EEG-only', 'LSTM': 'LSTM', 'Transformer': 'Transformer',
-          'LTC': 'LTC', 'WaveletTransformer': 'Wavelet\nTransf.',
-          'RidgeGaze': 'Ridge\n(gaze)', 'PersistenceTrend': 'Persist.\n(trend)',
-          'PersistenceZero': 'Persist.\n(no change)', 'MeanPredictor': 'Mean\npredictor'}
+def fig2():
+    blue, orange = '#4C72B0', '#DD8452'
+    gray_fill, gray_edge = '#f2f2f2', '#9a9a9a'
 
+    def panel(ax, x, y, w, h, fc=gray_fill):
+        ax.add_patch(FancyBboxPatch(
+            (x, y), w, h, boxstyle='round,pad=0.02,rounding_size=0.06',
+            fc=fc, ec=gray_edge, lw=1.1))
 
-def fig4_main():
-    s = load_summary()
-    names = [n for n in ORDER_MAIN if n in s['models']]
-    r = [s['models'][n]['r_col_mean'] for n in names]
-    ci = [s['models'][n]['r_col_ci95'] for n in names]
-    cols = [GREEN if n == 'TempAlignEEGNet' else
-            (BLUE if n in ('GazeOnly', 'EEGOnly') else GRAY) for n in names]
+    def wbox(ax, x, y, w, h, text, ec='#444444', fs=7.2, lw=1.2, fc='white'):
+        ax.add_patch(FancyBboxPatch(
+            (x, y), w, h, boxstyle='round,pad=0.015,rounding_size=0.05',
+            fc=fc, ec=ec, lw=lw))
+        ax.text(x + w / 2, y + h / 2, text, ha='center', va='center',
+                fontsize=fs)
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.0), gridspec_kw={'width_ratios': [1.3, 1]})
-    ax = axes[0]
-    x = np.arange(len(names))
-    ax.bar(x, r, yerr=ci, color=cols, capsize=2)
-    ax.set_xticks(x)
-    ax.set_xticklabels([LABELS[n] for n in names], fontsize=6.5)
-    ax.set_ylabel(r'$r_{\Delta col}$ (held-out)')
-    ax.axhline(0, color='k', lw=0.6)
-    # significance vs full model
-    paired = s.get('paired', {})
-    for i, n in enumerate(names):
-        if n in paired:
-            p = paired[n]['r_col']['wilcoxon_p']
-            star = '**' if p < 0.01 else ('*' if p < 0.05 else 'n.s.')
-            top = r[i] + ci[i] + 0.012
-            ax.text(i, top, star, ha='center', fontsize=6.5)
-    ax.set_title('(a) Model comparison (participant-level 5-fold CV)', fontsize=9)
+    def arrow(ax, p1, p2, color='k', lw=1.1, ms=11):
+        ax.add_patch(FancyArrowPatch(
+            p1, p2, arrowstyle='-|>', color=color, lw=lw, mutation_scale=ms,
+            shrinkA=0, shrinkB=0))
 
-    sa = seed_avg_preds('main', 'TempAlignEEGNet')
-    ax2 = axes[1]
-    if sa is not None:
-        t, p = sa['targets'], sa['preds']
-        lim = [min(t[:, 0].min(), p[:, 0].min()), max(t[:, 0].max(), p[:, 0].max())]
-        ax2.scatter(t[:, 0], p[:, 0], s=2, alpha=0.15, color=BLUE)
-        q = np.percentile(np.abs(t[:, 0]), [0.5, 99.5])
-        ax2.set_xlim(q[0] * 1.1, q[1] * 1.1)
-        ax2.set_ylim(q[0] * 1.1, q[1] * 1.1)
-        pooled = s['models']['TempAlignEEGNet']['pooled']
-        ax2.set_xlabel(r'Actual $\Delta$col (grid units)')
-        ax2.set_ylabel(r'Predicted $\Delta$col')
-        ax2.set_title(f"(b) Held-out predictions\nr={pooled['r_col']:.3f}, "
-                      f"$R^2$={pooled['R2_col']:.3f}", fontsize=9)
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig4_main_results.pdf'))
+    def squiggles(ax, x, y, w, h, n=8, seed=0):
+        rng = np.random.RandomState(seed)
+        xs = np.linspace(x + 0.05, x + w - 0.05, 120)
+        for i in range(n):
+            base = y + h * (i + 0.6) / (n + 0.2)
+            amp = h * 0.035
+            sig = (amp * np.sin(np.linspace(0, 8 * np.pi, 120)
+                                + rng.rand() * 6)
+                   + amp * 0.6 * np.sin(np.linspace(0, 21 * np.pi, 120)
+                                        + rng.rand() * 6)
+                   + rng.randn(120) * amp * 0.25)
+            ax.plot(xs, base + sig, color='#333333', lw=0.5, zorder=3)
+
+    def gaze_dots(ax, x, y, w, h, seed=1):
+        rng = np.random.RandomState(seed)
+        cx, cy = x + w * 0.5, y + h * 0.5
+        ax.scatter(cx + rng.randn(45) * w * 0.13,
+                   cy + rng.randn(45) * h * 0.16,
+                   s=4, color=blue, edgecolor='none', zorder=3)
+
+    def mask_icon(ax, x, y, s, n=5):
+        cell = s / n
+        for r in range(n):
+            for c in range(n):
+                fc = '#555555' if c <= r else 'white'
+                ax.add_patch(Rectangle(
+                    (x + c * cell, y + (n - 1 - r) * cell), cell, cell,
+                    fc=fc, ec='#bbbbbb', lw=0.4, zorder=3))
+
+    def xy_icon(ax, x, y, w, h):
+        ax.add_patch(Rectangle((x, y), w, h, fc='white', ec='#444444', lw=1.0))
+        for k in range(1, 4):
+            ax.plot([x + k * w / 4, x + k * w / 4], [y, y + h],
+                    color='#cccccc', lw=0.5)
+            ax.plot([x, x + w], [y + k * h / 4, y + k * h / 4],
+                    color='#cccccc', lw=0.5)
+        arrow(ax, (x + 0.12 * w, y + 0.25 * h), (x + 0.75 * w, y + 0.7 * h),
+              lw=0.9, ms=8)
+
+    fig, ax = plt.subplots(figsize=(7.9, 4.0))
+    ax.set_xlim(0, 12.6)
+    ax.set_ylim(0, 6.2)
+    ax.axis('off')
+
+    ax.text(6.0, 5.85, 'CausalEEGNet', ha='center', va='center',
+            fontsize=13, weight='bold')
+
+    ax.text(0.85, 5.42, 'EEG Input', ha='center', fontsize=8.5)
+    ax.add_patch(Rectangle((0.15, 3.55), 1.4, 1.65, fc='white',
+                           ec='#444444', lw=1.0))
+    squiggles(ax, 0.15, 3.55, 1.4, 1.65)
+    arrow(ax, (1.55, 4.35), (2.02, 4.35))
+
+    panel(ax, 2.02, 3.30, 2.55, 2.20)
+    ax.text(3.30, 5.28, 'Multi-Scale EEG Encoder', ha='center', fontsize=7.8)
+    wbox(ax, 2.14, 4.55, 1.36, 0.36, 'Conv1D (k=3)', fs=6.8)
+    wbox(ax, 2.14, 4.08, 1.36, 0.36, 'Conv1D (k=7)', fs=6.8)
+    wbox(ax, 2.14, 3.61, 1.36, 0.36, 'Conv1D (k=15)', fs=6.8)
+    ax.add_patch(FancyBboxPatch(
+        (3.55, 4.02), 0.40, 1.02, boxstyle='round,pad=0.015,rounding_size=0.05',
+        fc='white', ec='#444444', lw=1.1))
+    ax.text(3.75, 4.53, 'Concat', ha='center', va='center', fontsize=6.4,
+            rotation=90)
+    for yy in (4.73, 4.26, 3.79):
+        arrow(ax, (3.50, yy), (3.55, yy), lw=0.9, ms=7)
+    wbox(ax, 4.01, 4.26, 0.55, 0.48, 'Linear', fs=6.0)
+    arrow(ax, (3.95, 4.53), (4.01, 4.50), lw=0.9, ms=7)
+    ax.text(4.74, 4.70, r'$X_{\mathrm{EEG}}$', fontsize=9, style='italic')
+
+    ax.text(0.85, 3.02, 'Eye-tracking Input', ha='center', fontsize=8.5)
+    ax.text(0.85, 1.02, '50 resampled points', ha='center', va='top',
+            fontsize=6.2)
+    ax.add_patch(Rectangle((0.15, 1.15), 1.4, 1.55, fc='white',
+                           ec='#444444', lw=1.0))
+    gaze_dots(ax, 0.15, 1.15, 1.4, 1.55)
+    arrow(ax, (1.55, 1.92), (2.02, 1.92))
+
+    panel(ax, 2.02, 1.20, 2.55, 1.48)
+    ax.text(3.30, 2.48, 'Gaze Encoder', ha='center', fontsize=7.8)
+    wbox(ax, 2.16, 1.32, 2.28, 0.92,
+         'Linear $\\rightarrow$ GRU\n(2-layer, unidirectional)')
+    arrow(ax, (4.57, 1.92), (4.62, 1.92))
+    ax.text(4.64, 2.16, r'$X_{\mathrm{gaze}}$', fontsize=9, style='italic')
+
+    panel(ax, 5.55, 1.40, 2.25, 2.55)
+    ax.text(6.68, 3.82, 'Temporally Constrained\nCross-Attention',
+            ha='center', va='center', fontsize=7.2)
+    ax.text(6.68, 3.40, '($\\times$2 layers)', ha='center', fontsize=7.0)
+    ax.text(5.68, 3.12, 'Q', fontsize=8, color=blue)
+    ax.text(5.68, 2.38, 'K', fontsize=8, color=orange)
+    ax.text(5.68, 2.02, 'V', fontsize=8, color=orange)
+    mask_icon(ax, 6.10, 1.72, 0.86)
+    ax.text(6.68, 1.56, '$M$ (temporal mask)', ha='center', fontsize=7.0)
+
+    ax.add_patch(FancyArrowPatch(
+        (4.56, 4.50), (5.62, 3.20), arrowstyle='-|>', color=blue, lw=1.0,
+        mutation_scale=11, connectionstyle='angle,angleA=0,angleB=90,rad=0',
+        shrinkA=0, shrinkB=0))
+    arrow(ax, (4.95, 1.92), (5.55, 2.38), color=orange, lw=1.0)
+    arrow(ax, (4.95, 1.92), (5.55, 2.02), color=orange, lw=1.0)
+
+    arrow(ax, (7.80, 2.75), (7.98, 2.75))
+    panel(ax, 7.98, 2.05, 0.82, 1.40)
+    ax.text(8.39, 2.75, 'Temporal\nAttention\nPooling', ha='center',
+            va='center', fontsize=6.8, rotation=90)
+    arrow(ax, (8.80, 2.75), (8.98, 2.75))
+    panel(ax, 8.98, 2.20, 0.62, 1.05)
+    ax.text(9.29, 2.72, 'MLP', ha='center', va='center', fontsize=7.4,
+            rotation=90)
+
+    arrow(ax, (9.60, 2.95), (9.90, 3.10))
+    arrow(ax, (9.60, 2.55), (9.90, 2.55))
+    ax.text(9.95, 3.10, '$\\Delta$col', fontsize=7.6, va='center')
+    ax.text(9.95, 2.55, '$\\Delta$row', fontsize=7.6, va='center')
+    arrow(ax, (10.55, 3.05), (10.78, 2.95))
+    arrow(ax, (10.55, 2.60), (10.78, 2.60))
+    xy_icon(ax, 10.80, 2.15, 1.00, 1.00)
+    ax.text(11.30, 3.22, '(x,y)', ha='center', fontsize=7.0)
+
+    fig.tight_layout(pad=0.2)
+    fig.savefig(os.path.join(FIGURES, 'Fig2.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 5
-def fig5_ablation():
-    s = load_summary()
-    names = [n for n in ['TempAlignEEGNet', 'NoMask', 'FrontalExcluded', 'TempStructNet']
-             if n in s['models']]
-    labels = {'TempAlignEEGNet': 'Full model', 'NoMask': 'No temporal\nmask',
-              'FrontalExcluded': 'Frontal channels\nexcluded',
-              'TempStructNet': 'Learned mask'}
-    r = [s['models'][n]['r_col_mean'] for n in names]
-    ci = [s['models'][n]['r_col_ci95'] for n in names]
+def fig3():
+    d = load('training_history.json')
+    h = d['history']
+    ep = np.arange(1, len(h['train_loss']) + 1)
+    best = d['best_epoch']
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.8), gridspec_kw={'width_ratios': [1, 1.2]})
+    fig, axes = plt.subplots(1, 3, figsize=(6.6, 2.2))
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.95, bottom=0.30,
+                        wspace=0.38)
+
     ax = axes[0]
-    x = np.arange(len(names))
-    ax.bar(x, r, yerr=ci, color=[GREEN] + [BLUE] * (len(names) - 1), capsize=2)
-    ax.set_xticks(x)
-    ax.set_xticklabels([labels[n] for n in names], fontsize=7)
-    ax.set_ylabel(r'$r_{\Delta col}$')
-    ax.set_title('(a) Ablations under identical CV folds', fontsize=9)
+    ax.plot(ep, h['train_loss'], color=BLUE, lw=1.3, label='Training')
+    ax.plot(ep, h['inner_loss'], color=ORANGE, lw=1.3, label='Inner validation')
+    ax.axvline(best, color=GRAY, ls=':', lw=0.9)
+    ax.set_ylabel('Huber loss')
+    ax.legend(fontsize=6.5, loc='center left', bbox_to_anchor=(0.01, 0.56),
+              frameon=True, framealpha=0.9, edgecolor='none')
+    panel_caption(ax, '(a) Training and validation loss', y=-0.30)
 
     ax = axes[1]
+    ax.plot(ep, h['inner_rmse'], color=GREEN, lw=1.3)
+    ax.axvline(best, color=GRAY, ls=':', lw=0.9)
+    ax.set_ylabel('RMSE (z units)')
+    panel_caption(ax, '(b) Validation RMSE', y=-0.30)
+
+    ax = axes[2]
+    ax.plot(ep, h['inner_corr_col'], color=BLUE, lw=1.3)
+    ax.axvline(best, color=GRAY, ls=':', lw=0.9)
+    ax.axhline(0, color='k', lw=0.5)
+    ax.set_ylabel(r'$r_{\Delta col}$')
+    panel_caption(ax, '(c) Prediction correlation over epochs', y=-0.30)
+
+    for ax in axes:
+        ax.set_xlabel('Epoch', fontsize=7)
+        ax.tick_params(labelsize=6.5, pad=2)
+        ax.grid(lw=0.3, alpha=0.35)
+        ax.set_axisbelow(True)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(True)
+
+    fig.savefig(os.path.join(FIGURES, 'Fig3.pdf'))
+    plt.close(fig)
+
+
+def model_stats():
+    s = load('summary.json')
+    order = ['LSTM', 'MaskedLSTM', 'Transformer', 'MaskedTransformer', 'LTC',
+             'WaveletTransformer', 'GazeOnly', 'EEGOnly', 'TempAlignEEGNet',
+             'LearnedMaskNet', 'RidgeGaze', 'PersistenceTrend',
+             'MeanPredictor']
+    labels = {'LSTM': 'LSTM', 'MaskedLSTM': 'M-LSTM',
+              'Transformer': 'Transformer',
+              'MaskedTransformer': 'M-Transf.',
+              'LTC': 'LTC', 'WaveletTransformer': 'Wavelet',
+              'GazeOnly': 'Gaze', 'EEGOnly': 'EEG',
+              'TempAlignEEGNet': 'CausalEEGNet',
+              'LearnedMaskNet': 'L-mask', 'RidgeGaze': 'Ridge',
+              'PersistenceTrend': 'Trend', 'MeanPredictor': 'Mean'}
+    names = [labels[n] for n in order if n in s['models']]
+    rmse = [s['models'][n]['rmse_mean'] for n in order if n in s['models']]
+    rmse_ci = [s['models'][n]['rmse_ci95'] for n in order if n in s['models']]
+    rc = [s['models'][n]['r_col_mean'] for n in order if n in s['models']]
+    rc_ci = [s['models'][n]['r_col_ci95'] for n in order if n in s['models']]
+    rr = [s['models'][n]['r_row_mean'] for n in order if n in s['models']]
+    rr_ci = [s['models'][n]['r_row_ci95'] for n in order if n in s['models']]
+    colors = [GRAY, '#9DC3E6', GRAY, '#C5B4E3', ORANGE, RED, BLUE, PURPLE,
+              GREEN, '#F2C14E', GRAY, GRAY, LIGHTGRAY][:len(names)]
+    return names, rmse, rmse_ci, rc, rc_ci, rr, rr_ci, colors
+
+
+def bars3(axs, names, series, colors, ylabels, captions, value_labels):
+    x = np.arange(len(names))
+    for ax, (vals, cis), ylab, cap, show_lab in zip(
+            axs, series, ylabels, captions, value_labels):
+        ax.bar(x, vals, yerr=cis, color=colors, edgecolor='k', lw=0.5,
+               capsize=2.5, width=0.78,
+               error_kw={'lw': 0.8, 'capthick': 0.8})
+        lo = min(0.0, min(v - e for v, e in zip(vals, cis)))
+        hi = max(v + e for v, e in zip(vals, cis))
+        span = max(hi - lo, 1e-3)
+        ax.set_ylim(lo - 0.08 * span, hi + 0.30 * span)
+        if show_lab:
+            for i, (v, e) in enumerate(zip(vals, cis)):
+                dy = 3 if i % 2 == 0 else 11
+                ax.annotate(f'{v:.3f}', xy=(i, hi), xytext=(0, dy),
+                            textcoords='offset points', ha='center',
+                            va='bottom', fontsize=5.0, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(names, fontsize=6.4, rotation=45, ha='right')
+        ax.set_ylabel(ylab, fontsize=8.5)
+        ax.set_xlabel(cap, fontsize=9, labelpad=6)
+        ax.grid(axis='y', lw=0.35, alpha=0.4)
+        ax.set_axisbelow(True)
+        ax.tick_params(labelsize=7.5, pad=2)
+
+
+def fig4():
+    names, rmse, rmse_ci, rc, rc_ci, rr, rr_ci, colors = model_stats()
+    fig = plt.figure(figsize=(7.0, 4.9))
+    gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 0.95], hspace=0.75,
+                          wspace=0.9, left=0.06, right=0.99, top=0.95,
+                          bottom=0.10)
+    axs = [fig.add_subplot(gs[0, 0:2]), fig.add_subplot(gs[0, 2:4]),
+           fig.add_subplot(gs[0, 4:6])]
+    bars3(axs, names, [(rmse, rmse_ci), (rc, rc_ci), (rr, rr_ci)], colors,
+          ['RMSE', 'Pearson $r$', 'Pearson $r$'],
+          ['(a) Prediction RMSE', r'(b) $\Delta$col correlation',
+           r'(c) $\Delta$row correlation'],
+          [True, True, True])
+
+    sa = seed_avg_preds('main', 'TempAlignEEGNet')
+    if sa is not None:
+        t, p = sa['targets'], sa['preds']
+        pooled = load('summary.json')['models']['TempAlignEEGNet']['pooled']
+        for k, (span, lab, tag) in enumerate(
+                [(slice(0, 3), 'col', 'd'), (slice(3, 6), 'row', 'e')]):
+            ax = fig.add_subplot(gs[1, span])
+            q = np.percentile(np.abs(t[:, k]), 99.5)
+            m = np.abs(t[:, k]) <= q
+            ax.scatter(t[m, k], p[m, k], s=2.2, alpha=0.25, color=BLUE,
+                       edgecolors='none', rasterized=True)
+            ax.axhline(0, color='0.75', lw=0.6, zorder=0)
+            ax.set_xlim(-q, q)
+            qy = np.percentile(np.abs(p[m, k]), 99.5)
+            ax.set_ylim(-qy, qy)
+            rk = 'r_col' if lab == 'col' else 'r_row'
+            r2k = 'R2_col' if lab == 'col' else 'R2_row'
+            ax.text(0.03, 0.96,
+                    f"$r$ = {pooled[rk]:.3f}\n$R^2$ = {pooled[r2k]:.3f}",
+                    transform=ax.transAxes, ha='left', va='top', fontsize=7)
+            ax.set_xlabel(f'Actual $\\Delta${lab} (z)\n'
+                          + f'({tag}) ' + ('Horizontal' if lab == 'col'
+                                           else 'Vertical')
+                          + ' held-out predictions', fontsize=8)
+            ax.set_ylabel(rf'Predicted $\Delta${lab} (z)', fontsize=8.5)
+            ax.tick_params(labelsize=7.5, pad=2)
+
+    fig.savefig(os.path.join(FIGURES, 'Fig4.pdf'))
+    plt.close(fig)
+
+
+def fig5():
+    abl = load('results_ablation.json')
+    ver = load('mask_verification.json')
+    order = [('TempAlignEEGNet', 'Full model'), ('NoMask', 'No mask'),
+             ('FrontalExcluded', 'Frontal\nremoved'),
+             ('TempStructNet', 'Learned\nmask')]
+    names, rmse, rmse_ci, rc, rc_ci, rr, rr_ci = [], [], [], [], [], [], []
+    summ = load('summary.json')['models']['TempAlignEEGNet']
+    for key, lab in order:
+        if key == 'TempAlignEEGNet':
+            names.append(lab)
+            rmse.append(summ['rmse_mean'])
+            rmse_ci.append(summ['rmse_ci95'])
+            rc.append(summ['r_col_mean'])
+            rc_ci.append(summ['r_col_ci95'])
+            rr.append(summ['r_row_mean'])
+            rr_ci.append(summ['r_row_ci95'])
+            continue
+        runs = abl.get(key, {}).get('runs', [])
+        if not runs:
+            continue
+        names.append(lab)
+        n = len(runs)
+        rmse.append(np.mean([r['rmse'] for r in runs]))
+        rmse_ci.append(1.96 * np.std([r['rmse'] for r in runs], ddof=1)
+                       / np.sqrt(n))
+        rc.append(np.mean([r['r_col'] for r in runs]))
+        rc_ci.append(1.96 * np.std([r['r_col'] for r in runs], ddof=1)
+                     / np.sqrt(n))
+        rr.append(np.mean([r['r_row'] for r in runs]))
+        rr_ci.append(1.96 * np.std([r['r_row'] for r in runs], ddof=1)
+                     / np.sqrt(n))
+    colors = [RED] + [BLUE, ORANGE, GREEN][:len(names) - 1]
+
+    fig = plt.figure(figsize=(7.0, 4.7))
+    gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 1.0], hspace=0.7,
+                          wspace=0.9, left=0.06, right=0.99, top=0.95,
+                          bottom=0.10)
+    axs = [fig.add_subplot(gs[0, 0:2]), fig.add_subplot(gs[0, 2:4]),
+           fig.add_subplot(gs[0, 4:6])]
+    bars3(axs, names, [(rmse, rmse_ci), (rc, rc_ci), (rr, rr_ci)], colors,
+          ['RMSE', 'Pearson $r$', 'Pearson $r$'],
+          ['(a) RMSE', r'(b) $\Delta$col correlation',
+           r'(c) $\Delta$row correlation'],
+          [True, True, True])
+
     T, S = 256, 50
     i = np.arange(T)[:, None]
     j = np.arange(S)[None, :]
     allowed = (j <= np.floor(i * S / T)).astype(float)
-    ax.imshow(allowed, aspect='auto', origin='lower', cmap='Blues',
+    d = ver['learned_mask']
+    soft = 1.0 / (1.0 + np.exp(-(((i / T - d['delay_normalized']) - (j / S))
+                                 / d['bandwidth'])))
+    ax = fig.add_subplot(gs[1, 0:3])
+    ax.imshow(allowed, origin='lower', aspect='auto', cmap='Blues',
               extent=[0, S, 0, T], vmin=0, vmax=1.2)
-    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=1,
-            label='boundary $j=\\lfloor iS/T\\rfloor$')
-    ax.set_xlabel('Gaze position $j$')
-    ax.set_ylabel('EEG position $i$')
-    ax.set_title('(b) Fixed temporal mask $M$ (blue = allowed,\nwhite = $-10^9$ penalty)', fontsize=9)
-    ax.legend(fontsize=6.5, loc='lower right')
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig5_ablation_mask.pdf'))
+    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=0.9)
+    ax.set_xlabel('Gaze position $j$\n(d) Fixed temporal mask', fontsize=8)
+    ax.set_ylabel('EEG position $i$', fontsize=8.5)
+    ax.tick_params(labelsize=7.5, pad=2)
+
+    ax = fig.add_subplot(gs[1, 3:6])
+    im = ax.imshow(soft, origin='lower', aspect='auto', cmap='viridis',
+                   extent=[0, S, 0, T], vmin=0, vmax=1)
+    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=0.9)
+    ax.set_xlabel('Gaze position $j$\n(e) Learned soft mask', fontsize=8)
+    ax.set_ylabel('EEG position $i$', fontsize=8.5)
+    ax.tick_params(labelsize=7.5, pad=2)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+
+    fig.savefig(os.path.join(FIGURES, 'Fig5.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 6 (attention)
-def fig6_attention():
-    path = os.path.join(EXP, 'mask_verification.json')
-    if not os.path.exists(path):
-        return
-    ver = json.load(open(path))
-    attn = np.array(ver['fixed_mask']['mean_attention'])  # (256, 50)
+def fig6():
+    ver = load('mask_verification.json')
+    attn = np.array(ver['fixed_mask']['mean_attention'])
     fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.7),
                              gridspec_kw={'width_ratios': [1.4, 1]})
     ax = axes[0]
@@ -197,22 +457,18 @@ def fig6_attention():
     plt.colorbar(im, ax=ax, fraction=0.046)
 
     ax = axes[1]
-    prof = attn.max(axis=1)  # per EEG row
+    prof = attn.max(axis=1)
     ax.plot(np.arange(256) / 256 * 2.0, prof, color=BLUE, lw=1)
     ax.set_xlabel('Time within window (s)')
     ax.set_ylabel('Max attention weight')
     ax.set_title('(b) Attention concentration over time', fontsize=9)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig6_attention.pdf'))
+    fig.savefig(os.path.join(FIGURES, 'Fig6.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 7
-def fig7_channels():
-    path = os.path.join(EXP, 'channel_zeroout.json')
-    if not os.path.exists(path):
-        return
-    d = json.load(open(path))
+def fig7():
+    d = load('channel_zeroout.json')
     ch = d['channels']
     mean = np.array(d['mean_delta_mse'])
     std = np.array(d['std_delta_mse'])
@@ -228,9 +484,10 @@ def fig7_channels():
     ax.set_title('(a) Per-channel contribution (gaze changes)', fontsize=9)
 
     ax = axes[1]
-    pos = {'AF3': (-0.35, 0.9), 'AF4': (0.35, 0.9), 'F7': (-0.7, 0.6), 'F8': (0.7, 0.6),
-           'F3': (-0.3, 0.65), 'F4': (0.3, 0.65), 'FC5': (-0.6, 0.3), 'FC6': (0.6, 0.3),
-           'T7': (-0.85, 0.0), 'T8': (0.85, 0.0), 'P7': (-0.6, -0.5), 'P8': (0.6, -0.5),
+    pos = {'AF3': (-0.35, 0.9), 'AF4': (0.35, 0.9), 'F7': (-0.7, 0.6),
+           'F8': (0.7, 0.6), 'F3': (-0.3, 0.65), 'F4': (0.3, 0.65),
+           'FC5': (-0.6, 0.3), 'FC6': (0.6, 0.3), 'T7': (-0.85, 0.0),
+           'T8': (0.85, 0.0), 'P7': (-0.6, -0.5), 'P8': (0.6, -0.5),
            'O1': (-0.3, -0.85), 'O2': (0.3, -0.85)}
     vals = np.array(d['mean_delta_mse'])
     vmax = np.abs(vals).max()
@@ -239,73 +496,91 @@ def fig7_channels():
         col = plt.cm.Reds(0.15 + 0.85 * vals[i] / vmax)
         ax.scatter(cx, cy, s=650, color=col, edgecolor='k', lw=0.5, zorder=2)
         ax.text(cx, cy, c, ha='center', va='center', fontsize=6.5, zorder=3)
-    sm = plt.cm.ScalarMappable(cmap='Reds',
-                               norm=plt.Normalize(0, vmax))
+    sm = plt.cm.ScalarMappable(cmap='Reds', norm=plt.Normalize(0, vmax))
     plt.colorbar(sm, ax=ax, fraction=0.046, label='MSE increase')
-    ax.set_xlim(-1.15, 1.15); ax.set_ylim(-1.15, 1.15)
-    ax.set_aspect('equal'); ax.axis('off')
+    ax.set_xlim(-1.15, 1.15)
+    ax.set_ylim(-1.15, 1.15)
+    ax.set_aspect('equal')
+    ax.axis('off')
     ax.set_title('(b) Topographic importance map', fontsize=9)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig7_channels.pdf'))
+    fig.savefig(os.path.join(FIGURES, 'Fig7.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 8
-def fig8_learned_structure():
-    ver_path = os.path.join(EXP, 'mask_verification.json')
-    abl_path = os.path.join(EXP, 'results_ablation.json')
-    if not (os.path.exists(ver_path) and os.path.exists(abl_path)):
-        return
-    ver = json.load(open(ver_path))
-    abl = json.load(open(abl_path))
-    runs = [r for r in abl.get('TempStructNet', {}).get('runs', [])]
-    delays = [r.get('delay') for r in runs if r.get('delay') is not None]
-    bws = [r.get('bandwidth') for r in runs if r.get('bandwidth') is not None]
+def fig8():
+    ver = load('mask_verification.json')
+    abl = load('results_ablation.json')
 
-    fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.5))
-    ax = axes[0]
-    d = np.array(delays)
-    ax.hist(d, bins=8, color=BLUE, alpha=0.8)
-    ax.axvline(np.median(d), color=RED, lw=1)
-    ax.set_xlabel(r'Learned delay $\delta$ (normalized)')
-    ax.set_ylabel('Count (5 folds x seeds)')
-    ax.set_title('(a) Learned delay, real data', fontsize=9)
+    delta = ver['learned_mask']['delay_normalized']
+    beta = ver['learned_mask']['bandwidth']
+    delay_ms = ver['learned_mask']['delay_ms']
 
-    ax = axes[1]
+    T, S = 256, 50
+    i = np.arange(T)[:, None]
+    j = np.arange(S)[None, :]
+    allowed = (j <= np.floor(i * S / T)).astype(float)
+    soft = 1.0 / (1.0 + np.exp(-(((i / T - delta) - (j / S)) / beta)))
+
+    runs = abl.get('TempStructNet', {}).get('runs', [])
+    delays = np.array([r['delay'] for r in runs if r.get('delay') is not None])
+
     syn = ver.get('synthetic', [])
-    offs = sorted({s['target_offset'] for s in syn})
-    data = [[s['delta_learned'] for s in syn if s['target_offset'] == o] for o in offs]
-    ax.bar(range(len(offs)), [np.mean(x) for x in data],
-           yerr=[np.std(x) for x in data], color=ORANGE, capsize=2)
-    ax.set_xticks(range(len(offs)))
-    ax.set_xticklabels([f'{o:.2f}' for o in offs])
-    ax.set_xlabel('Generative target offset')
-    ax.set_ylabel(r'Learned $\delta$')
-    ax.set_title('(b) Synthetic control (no tracking)', fontsize=9)
-    ax.axhline(np.mean([np.mean(x) for x in data]), color=GRAY, ls=':')
+    offsets = sorted({s['target_offset'] for s in syn})
 
-    ax = axes[2]
-    soft_verified_delay = ver['learned_mask']['delay_normalized']
-    ax.axvline(soft_verified_delay * 2000, color=GREEN, lw=2)
-    ax.text(soft_verified_delay * 2000 + 15, 0.5,
-            f"$\\delta$ = {soft_verified_delay:.3f}\n"
-            f"({soft_verified_delay*2000:.0f} ms)",
-            fontsize=8, color=GREEN)
-    ax.set_xlim(0, 600); ax.set_ylim(0, 1)
-    ax.set_yticks([])
-    ax.set_xlabel('Milliseconds within the 2 s window')
-    ax.set_title('(c) Delay conversion (corrected)', fontsize=9)
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig8_learned_structure.pdf'))
+    fig = plt.figure(figsize=(6.6, 4.6))
+    gs = fig.add_gridspec(2, 2, hspace=0.62, wspace=0.42,
+                          left=0.07, right=0.97, top=0.96, bottom=0.13)
+
+    ax = fig.add_subplot(gs[0, 0])
+    im = ax.imshow(soft, origin='lower', aspect='auto', cmap='viridis',
+                   extent=[0, S, 0, T], vmin=0, vmax=1)
+    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=1)
+    ax.set_xlabel('Gaze position $j$\n(a) Learned soft mask', fontsize=7.5)
+    ax.set_ylabel('EEG position $i$')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+
+    ax = fig.add_subplot(gs[0, 1])
+    diff = soft - allowed
+    im = ax.imshow(diff, origin='lower', aspect='auto', cmap='RdBu_r',
+                   extent=[0, S, 0, T], vmin=-1, vmax=1)
+    ax.plot(np.arange(S), np.arange(S) * T / S, 'k--', lw=0.8)
+    ax.set_xlabel('Gaze position $j$\n(b) Learned minus fixed mask',
+                  fontsize=7.5)
+    ax.set_ylabel('EEG position $i$')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+
+    ax = fig.add_subplot(gs[1, 0])
+    ax.hist(delays, bins=8, color=BLUE, alpha=0.85)
+    ax.axvline(0.15, color=RED, lw=1.1, ls=':')
+    ax.axvline(delta, color=RED, lw=1.1)
+    ax.set_xlabel(r'Learned delay $\delta$ (normalized)' + '\n'
+                  + f'(c) Real data: $\\delta$={delta:.3f} '
+                  + f'({delay_ms:.0f} ms)', fontsize=7.2)
+    ax.set_ylabel('Count')
+
+    ax = fig.add_subplot(gs[1, 1])
+    means = [np.mean([s['delta_learned'] for s in syn
+                      if s['target_offset'] == o]) for o in offsets]
+    stds = [np.std([s['delta_learned'] for s in syn
+                    if s['target_offset'] == o]) for o in offsets]
+    ax.bar(range(len(offsets)), means, yerr=stds, color=ORANGE, capsize=2)
+    ax.set_xticks(range(len(offsets)))
+    ax.set_xticklabels([f'{o:.2f}' for o in offsets])
+    ax.set_ylim(0, 0.2)
+    ax.set_xlabel('Generative target offset\n(d) Synthetic control',
+                  fontsize=7.5)
+    ax.set_ylabel(r'Learned $\delta$')
+
+    for ax in fig.axes:
+        ax.tick_params(labelsize=7, pad=2)
+
+    fig.savefig(os.path.join(FIGURES, 'Fig8.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 9
-def fig9_lagged():
-    path = os.path.join(EXP, 'lagged_analysis.json')
-    if not os.path.exists(path):
-        return
-    res = json.load(open(path))
+def fig9():
+    res = load('lagged_analysis.json')
     imp1 = np.array([r['eeg_to_gaze_imp'] for r in res])
     p1 = np.array([r['eeg_to_gaze_p'] for r in res])
     imp2 = np.array([r['gaze_to_eeg_imp'] for r in res])
@@ -313,10 +588,13 @@ def fig9_lagged():
 
     fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.6))
     ax = axes[0]
-    bp = ax.boxplot([imp1, imp2], labels=['EEG$\\rightarrow$gaze', 'Gaze$\\rightarrow$EEG'],
-                    patch_artist=True, widths=0.5, showfliers=False)
+    bp = ax.boxplot([imp1, imp2], patch_artist=True, widths=0.5,
+                    showfliers=False)
+    ax.set_xticks([1, 2])
+    ax.set_xticklabels(['EEG$\\rightarrow$gaze', 'Gaze$\\rightarrow$EEG'])
     for patch, c in zip(bp['boxes'], [BLUE, ORANGE]):
-        patch.set_facecolor(c); patch.set_alpha(0.6)
+        patch.set_facecolor(c)
+        patch.set_alpha(0.6)
     ax.axhline(0, color='k', lw=0.6)
     ax.set_ylabel('Relative MSE improvement (CV)')
     ax.set_title(f"(a) Lagged predictability (L=4, 16 Hz)\n"
@@ -325,32 +603,66 @@ def fig9_lagged():
 
     ax = axes[1]
     bins = np.linspace(0, 1, 21)
-    ax.hist(p1, bins=bins, alpha=0.55, color=BLUE, label='EEG$\\rightarrow$gaze')
-    ax.hist(p2, bins=bins, alpha=0.55, color=ORANGE, label='Gaze$\\rightarrow$EEG')
+    ax.hist(p1, bins=bins, alpha=0.55, color=BLUE,
+            label='EEG$\\rightarrow$gaze')
+    ax.hist(p2, bins=bins, alpha=0.55, color=ORANGE,
+            label='Gaze$\\rightarrow$EEG')
     ax.axvline(0.05, color=RED, ls='--', lw=1, label='p=0.05')
     ax.set_xlabel('Permutation p-value')
     ax.set_ylabel('Participants')
     ax.legend(fontsize=6.5)
     ax.set_title('(b) Null distribution check', fontsize=9)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig9_lagged.pdf'))
+    fig.savefig(os.path.join(FIGURES, 'Fig9.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 11
-def fig11_bands():
-    path = os.path.join(EXP, 'results_ablation.json')
-    if not os.path.exists(path):
-        return
-    d = json.load(open(path))
+def fig10():
+    res = load('lagged_analysis.json')
+    imp = 100.0 * np.array([r['gaze_to_eeg_imp'] for r in res])
+    p = np.array([r['gaze_to_eeg_p'] for r in res])
+    n = len(res)
+    sig = int((p < 0.05).sum())
+
+    fig, axes = plt.subplots(1, 2, figsize=(3.35, 2.7))
+    fig.subplots_adjust(left=0.17, right=0.97, top=0.95, bottom=0.2,
+                        wspace=0.5)
+
+    ax = axes[0]
+    bp = ax.boxplot([imp], patch_artist=True, widths=0.45, showfliers=False)
+    bp['boxes'][0].set_facecolor(ORANGE)
+    bp['boxes'][0].set_alpha(0.6)
+    ax.axhline(0, color='k', lw=0.6)
+    ax.set_ylabel('MSE improvement (%)')
+    ax.set_xticks([1])
+    ax.set_xticklabels(['Gaze$\\to$EEG'])
+    ax.set_xlabel('(a) Lagged gaze$\\to$EEG\n'
+                  f'median {np.median(imp):+.1f}%, {sig}/{n} sig.',
+                  fontsize=6.5)
+
+    ax = axes[1]
+    ax.hist(p, bins=np.linspace(0, 1, 21), color=ORANGE, alpha=0.75)
+    ax.axvline(0.05, color=RED, ls='--', lw=1)
+    ax.set_xlabel('Permutation $p$-value\n(b) Null check', fontsize=6.5)
+    ax.set_ylabel('Participants')
+
+    for ax in axes:
+        ax.tick_params(labelsize=7, pad=2)
+
+    fig.savefig(os.path.join(FIGURES, 'Fig10.pdf'))
+    plt.close(fig)
+
+
+def fig11():
+    d = load('results_ablation.json')
     names = [n for n in ['BandTheta', 'BandAlpha', 'BandBeta'] if n in d]
     if not names:
         return
     labels = {'BandTheta': 'Theta (4-8 Hz)', 'BandAlpha': 'Alpha (8-13 Hz)',
               'BandBeta': 'Beta (13-30 Hz)'}
     r = [np.mean([x['r_col'] for x in d[n]['runs']]) for n in names]
-    ci = [np.std([x['r_col'] for x in d[n]['runs']], ddof=1) / np.sqrt(len(d[n]['runs'])) * 2
-          for n in names]
+    ci = [np.std([x['r_col'] for x in d[n]['runs']], ddof=1)
+          / np.sqrt(len(d[n]['runs'])) * 2 for n in names]
 
     fig, ax = plt.subplots(figsize=(3.4, 2.6))
     x = np.arange(len(names))
@@ -360,18 +672,18 @@ def fig11_bands():
     ax.set_ylabel(r'$r_{\Delta col}$')
     ax.set_title('Single-band models (5-fold CV)', fontsize=9)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig11_bands.pdf'))
+    fig.savefig(os.path.join(FIGURES, 'Fig11.pdf'))
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- Fig 12
-def fig12_permutation():
-    s = load_summary()
+def fig12():
+    s = load('summary.json')
     names = [n for n in ['TempAlignEEGNet', 'PermutedEEG', 'PermutedTarget']
              if n in s['models']]
     if len(names) < 2:
         return
-    labels = {'TempAlignEEGNet': 'Full model', 'PermutedEEG': 'Permuted EEG\n(training)',
+    labels = {'TempAlignEEGNet': 'Full model',
+              'PermutedEEG': 'Permuted EEG\n(training)',
               'PermutedTarget': 'Permuted target\n(training)'}
     r = [s['models'][n]['r_col_mean'] for n in names]
     ci = [s['models'][n]['r_col_ci95'] for n in names]
@@ -387,76 +699,75 @@ def fig12_permutation():
     ax.set_title('(a) Alignment-dependence (CV)', fontsize=9)
 
     ax = axes[1]
-    if len(names) >= 2:
-        a = seed_avg_preds('main', 'TempAlignEEGNet')
-        b = seed_avg_preds('ablation', 'PermutedEEG')
-        if a is not None and b is not None:
-            from metrics import per_participant_metrics
-            pa = {r_['pid']: r_['r_col'] for r_ in per_participant_metrics(a['targets'], a['preds'], a['pids'])}
-            pb = {r_['pid']: r_['r_col'] for r_ in per_participant_metrics(b['targets'], b['preds'], b['pids'])}
-            common = sorted(set(pa) & set(pb))
-            ax.scatter([pb[p] for p in common], [pa[p] for p in common],
-                       s=8, alpha=0.5, color=BLUE)
-            lim = [min(min(pa[p], pb[p]) for p in common) - 0.05,
-                   max(max(pa[p], pb[p]) for p in common) + 0.05]
-            ax.plot(lim, lim, 'k--', lw=0.7)
-            ax.set_xlabel('Permuted-EEG model $r$ (per participant)')
-            ax.set_ylabel('Full model $r$ (per participant)')
-            ax.set_title('(b) Participant-level pairing', fontsize=9)
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig12_permutation.pdf'))
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------- Fig 13
-def fig13_participants():
-    s = load_summary()
-    if 'TempAlignEEGNet' not in s['models']:
-        return
-    pp = s['models']['TempAlignEEGNet'].get('per_participant', [])
-    if not pp:
-        return
-    r = np.array([x['r_col'] for x in pp])
-
-    fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.6))
-    ax = axes[0]
-    ax.hist(r, bins=20, color=BLUE, alpha=0.85)
-    ax.axvline(r.mean(), color=RED, lw=1.2, label=f'mean = {r.mean():.3f}')
-    ax.set_xlabel(r'Per-participant $r_{\Delta col}$ (held-out)')
-    ax.set_ylabel('Count')
-    ax.legend(fontsize=7)
-    ax.set_title(f'(a) Interindividual variability (n={len(r)})', fontsize=9)
-
-    ax = axes[1]
-    if 'GazeOnly' in s['models']:
-        pg = {x['pid']: x['r_col'] for x in s['models']['GazeOnly'].get('per_participant', [])}
-        pf = {x['pid']: x['r_col'] for x in pp}
-        common = sorted(set(pg) & set(pf))
-        ax.scatter([pg[p] for p in common], [pf[p] for p in common],
-                   s=8, alpha=0.5, color=GREEN)
-        lim = [-0.2, max(max(pg[p], pf[p]) for p in common) + 0.05]
+    a = seed_avg_preds('main', 'TempAlignEEGNet')
+    b = seed_avg_preds('ablation', 'PermutedEEG')
+    if a is not None and b is not None:
+        from metrics import per_participant_metrics
+        pa = {row['pid']: row['r_col'] for row in per_participant_metrics(
+            a['targets'], a['preds'], a['pids'])}
+        pb = {row['pid']: row['r_col'] for row in per_participant_metrics(
+            b['targets'], b['preds'], b['pids'])}
+        common = sorted(set(pa) & set(pb))
+        ax.scatter([pb[p] for p in common], [pa[p] for p in common],
+                   s=8, alpha=0.5, color=BLUE)
+        lim = [min(min(pa[p], pb[p]) for p in common) - 0.05,
+               max(max(pa[p], pb[p]) for p in common) + 0.05]
         ax.plot(lim, lim, 'k--', lw=0.7)
-        d = np.mean([pf[p] - pg[p] for p in common])
-        ax.set_xlabel('Gaze-only $r$ (per participant)')
+        ax.set_xlabel('Permuted-EEG model $r$ (per participant)')
         ax.set_ylabel('Full model $r$ (per participant)')
-        ax.set_title(f'(b) Incremental value of EEG\nmean $\\Delta r$ = {d:+.3f}', fontsize=9)
+        ax.set_title('(b) Participant-level pairing', fontsize=9)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, 'fig13_participants.pdf'))
+    fig.savefig(os.path.join(FIGURES, 'Fig12.pdf'))
     plt.close(fig)
 
 
-ALL = {
-    'fig1': fig1_demographics, 'fig4': fig4_main, 'fig5': fig5_ablation,
-    'fig6': fig6_attention, 'fig7': fig7_channels, 'fig8': fig8_learned_structure,
-    'fig9': fig9_lagged, 'fig11': fig11_bands, 'fig12': fig12_permutation,
-    'fig13': fig13_participants,
+def fig13():
+    rows = list(csv.DictReader(open(os.path.join(
+        RESULTS, 'per_participant_metrics.csv'))))
+    rc = np.array([float(r['r_col']) for r in rows])
+    rr = np.array([float(r['r_row']) for r in rows])
+    fig, axes = plt.subplots(1, 2, figsize=(3.35, 2.5))
+    fig.subplots_adjust(left=0.17, right=0.97, top=0.95, bottom=0.22,
+                        wspace=0.45)
+    for ax, v, lab, tag in [(axes[0], rc, 'col', 'a'),
+                            (axes[1], rr, 'row', 'b')]:
+        ax.hist(v, bins=18, color=BLUE, alpha=0.85, edgecolor='white')
+        ax.axvline(v.mean(), color=RED, lw=1.1)
+        ax.set_xlabel(rf'per-participant $r_{{\Delta\mathrm{{{lab}}}}}$',
+                      fontsize=6.5)
+        ax.set_ylabel('Count', fontsize=6.5)
+        ax.tick_params(labelsize=6, pad=1)
+        ax.text(0.03, 0.95, f'mean = {v.mean():.3f}\n(n = {len(v)})',
+                transform=ax.transAxes, ha='left', va='top', fontsize=6)
+        ax.text(0.5, -0.30, f'({tag}) ' + ('Horizontal' if lab == 'col'
+                else 'Vertical'), transform=ax.transAxes, ha='center',
+                fontsize=7.5)
+    fig.savefig(os.path.join(FIGURES, 'Fig13.pdf'))
+    plt.close(fig)
+
+
+FIGURES_BY_NAME = {
+    'fig1': fig1, 'fig2': fig2, 'fig3': fig3, 'fig4': fig4, 'fig5': fig5,
+    'fig6': fig6, 'fig7': fig7, 'fig8': fig8, 'fig9': fig9, 'fig10': fig10,
+    'fig11': fig11, 'fig12': fig12, 'fig13': fig13,
 }
 
+
+FONT_SIZE = {'fig1': 8, 'fig3': 8, 'fig4': 8, 'fig5': 8, 'fig13': 8}
+
+
+def main():
+    wanted = sys.argv[1:] or list(FIGURES_BY_NAME)
+    for name in wanted:
+        key = name.lower()
+        fn = FIGURES_BY_NAME.get(key)
+        if fn is None:
+            print('unknown figure:', name)
+            continue
+        with plt.rc_context({'font.size': FONT_SIZE.get(key, 9)}):
+            fn()
+        print('saved', name)
+
+
 if __name__ == '__main__':
-    wanted = sys.argv[1:] or list(ALL.keys())
-    for k in wanted:
-        try:
-            ALL[k]()
-            print('ok', k)
-        except FileNotFoundError as e:
-            print('skip', k, e)
+    main()

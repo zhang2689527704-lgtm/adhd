@@ -18,9 +18,8 @@ import time
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy import signal
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from models_v2 import TempAlignEEGNet, TempStructNet, count_params
@@ -29,7 +28,9 @@ from metrics import evaluate_predictions
 from run_main import load_cache, outer_folds, train_one, predict, CFG
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'experiments')
+ROOT = os.path.join(HERE, '..')
+RESULTS = os.path.join(ROOT, 'results')
+PREDICTIONS = os.path.join(ROOT, 'predictions')
 
 CH_ALL = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
 CH_FRONTAL_EXCLUDED = ['FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6']
@@ -105,7 +106,7 @@ def make_folds(cache):
 def run_variant(name, model_fn, cache, folds, fold_ids, seeds, tag,
                 channels=None, eeg_src=None, perm_eeg=False, perm_target=False,
                 on_epoch=None):
-    results_path = os.path.join(OUT, f'results_{tag}.json')
+    results_path = os.path.join(RESULTS, f'results_{tag}.json')
     results = json.load(open(results_path)) if os.path.exists(results_path) else {}
     results.setdefault(name, {'runs': [], 'params': None})
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -165,7 +166,8 @@ def run_variant(name, model_fn, cache, folds, fold_ids, seeds, tag,
                   f"delay={m.get('delay')} ep={ep} ({m['time']:.0f}s)")
 
             np.savez_compressed(
-                os.path.join(OUT, f'preds_{tag}_{name}_f{fold}_s{seed}.npz'),
+                os.path.join(PREDICTIONS,
+                             f'preds_{tag}_{name}_f{fold}_s{seed}.npz'),
                 targets=targets, preds=preds, pids=pids)
             with open(results_path, 'w') as f:
                 json.dump(results, f, indent=1)
@@ -207,7 +209,7 @@ def main():
                     model.set_temperature(tau)
                 m._on_epoch = on_epoch
                 return m
-            # inject temperature hook via train_one wrapper: call m._on_epoch at epoch start
+            # temperature hook: train_one calls m._on_epoch at each epoch start
             run_variant(v, ts_fn, cache, folds, fold_ids, seeds, args.tag)
         elif v in ('BandTheta', 'BandAlpha', 'BandBeta'):
             bands = {'BandTheta': (4, 8), 'BandAlpha': (8, 13), 'BandBeta': (13, 30)}

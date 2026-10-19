@@ -1,5 +1,5 @@
 """Aggregate all experiment JSONs into a single numbers registry
-(summary.json) used by every table/figure/text in the revised manuscript.
+(summary.json) used by every table, figure, and number in the manuscript.
 
 Contents:
   - per-model fold-level metrics (mean +/- std across folds, 95% t-CI)
@@ -18,16 +18,18 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from metrics import (evaluate_predictions, per_participant_metrics, mean_ci,
                      paired_participant_test, bootstrap_participant_ci, pearson,
-                     predictive_r2, per_participant_metrics)
+                     predictive_r2)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'experiments')
+ROOT = os.path.join(HERE, '..')
+RESULTS = os.path.join(ROOT, 'results')
+PREDICTIONS = os.path.join(ROOT, 'predictions')
 TAGS = ['main', 'ablation']
 PRIMARY_SEED = 42
 
 
 def load_preds(pattern):
-    files = sorted(glob.glob(os.path.join(OUT, pattern)))
+    files = sorted(glob.glob(os.path.join(PREDICTIONS, pattern)))
     if not files:
         return None
     per_seed = {}
@@ -56,7 +58,7 @@ def seed_averaged(per_seed):
     return {'pids': ref['pids'], 'targets': ref['targets'], 'preds': preds}
 
 
-def model_summary(name, runs, merged):
+def model_summary(name, runs, merged, params=None):
     folds = sorted({r['fold'] for r in runs})
     per_fold = {}
     for f in folds:
@@ -69,7 +71,9 @@ def model_summary(name, runs, merged):
             'rmse': float(np.mean([r['rmse'] for r in fr])),
             'n_seeds': len(fr),
         }
-    out = {'per_fold': per_fold, 'params': runs[0].get('params')}
+    if params is None:
+        params = runs[0].get('params')
+    out = {'per_fold': per_fold, 'params': params}
     for key in ['r_col', 'r_row', 'R2_col', 'R2_row', 'rmse']:
         vals = [per_fold[f][key] for f in folds]
         m, h = mean_ci(vals)
@@ -95,12 +99,12 @@ def model_summary(name, runs, merged):
 
 
 def main():
-    summary = {'models': {}, 'paired': {}, 'config': {
+    summary = {'models': {}, 'paired': {}, 'paired_aux': {}, 'config': {
         'primary_seed': PRIMARY_SEED, 'n_folds': 5,
         'outer_split_seed': 42}}
 
     for tag in TAGS:
-        path = os.path.join(OUT, f'results_{tag}.json')
+        path = os.path.join(RESULTS, f'results_{tag}.json')
         if not os.path.exists(path):
             continue
         results = json.load(open(path))
@@ -110,7 +114,8 @@ def main():
                 for bname in sorted({r['name'] for r in runs}):
                     bruns = [r for r in runs if r['name'] == bname]
                     files = sorted(glob.glob(os.path.join(
-                        OUT, f'preds_{tag}_StatBaselines_{bname}_f*.npz')))
+                        PREDICTIONS,
+                        f'preds_{tag}_StatBaselines_{bname}_f*.npz')))
                     merged = None
                     if files:
                         arrs = [np.load(f) for f in files]
@@ -118,13 +123,36 @@ def main():
                             'pids': np.concatenate([a['pids'] for a in arrs]),
                             'targets': np.concatenate([a['targets'] for a in arrs]),
                             'preds': np.concatenate([a['preds'] for a in arrs])}}
-                    summary['models'][bname] = model_summary(bname, bruns, merged)
+                    summary['models'][bname] = model_summary(
+                        bname, bruns, merged, params=None)
                 continue
             if not runs:
                 continue
             merged = load_preds(f'preds_{tag}_{name}_f*_s*.npz')
-            summary['models'][name] = model_summary(name, runs, merged)
+            summary['models'][name] = model_summary(
+                name, runs, merged, params=v.get('params'))
             summary['models'][name]['tag'] = tag
+
+    # masked LSTM / Transformer baselines (separate runner)
+    extra_path = os.path.join(RESULTS, 'extra_models_cv.json')
+    if os.path.exists(extra_path):
+        extra = json.load(open(extra_path))
+        for name, blk in extra.items():
+            s = model_summary(name, blk['runs'], None, params=blk['params'])
+            for f in s['per_fold'].values():
+                f.pop('n_seeds', None)
+            summary['models'][name] = s
+
+    # Table 1 alias: the learned-mask ablation is reported as LearnedMaskNet
+    if 'TempStructNet' in summary['models']:
+        lm = json.loads(json.dumps(summary['models']['TempStructNet']))
+        for k in ('per_participant', 'pooled', 'tag',
+                  'ci_r_col', 'ci_r_row', 'ci_R2_col'):
+            lm.pop(k, None)
+        for f in lm['per_fold'].values():
+            f.pop('n_seeds', None)
+        lm['params'] = None
+        summary['models']['LearnedMaskNet'] = lm
 
     # paired tests vs the proposed model
     ref_name = 'TempAlignEEGNet'
@@ -142,7 +170,26 @@ def main():
                     [{**r, 'rmse': -r['rmse']} for r in oth], 'rmse'),
             }
 
-    with open(os.path.join(OUT, 'summary.json'), 'w') as f:
+    # auxiliary paired tests: each comparison against the gaze-only variant
+    aux = {'FrontalVsGazeOnly': 'FrontalExcluded',
+           'TempStructVsGazeOnly': 'TempStructNet',
+           'PermEEGVsGazeOnly': 'PermutedEEG',
+           'LSTMvsGazeOnly': 'LSTM',
+           'TransformerVsGazeOnly': 'Transformer',
+           'LTCvsGazeOnly': 'LTC',
+           'WaveletVsGazeOnly': 'WaveletTransformer',
+           'RidgeVsGazeOnly': 'RidgeGaze',
+           'NoMaskVsGazeOnly': 'NoMask'}
+    gaze = summary['models'].get('GazeOnly', {})
+    if 'per_participant' in gaze:
+        ref = gaze['per_participant']
+        for key, model in aux.items():
+            other = summary['models'].get(model, {})
+            if 'per_participant' in other:
+                summary['paired_aux'][key] = paired_participant_test(
+                    other['per_participant'], ref, 'r_col')
+
+    with open(os.path.join(RESULTS, 'summary.json'), 'w') as f:
         json.dump(summary, f, indent=1)
 
     print(f"{'Model':<22} {'r_col':>18} {'R2_col':>18} {'rmse':>16}")

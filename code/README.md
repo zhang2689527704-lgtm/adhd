@@ -1,61 +1,59 @@
-# TempAlign-EEGNet — reproducibility package
+# CausalEEGNet — reproducibility package
 
 Code accompanying the manuscript *"Temporal Predictive Alignment Between EEG
-and Eye Movements for Gaze Prediction Using Cross-Attention"* (IEEE Access
-resubmission, manuscript ID Access-2026-39609).
+and Eye Movements for Gaze Prediction Using Cross-Attention"* (IEEE Access,
+Access-2026-39609). The model is called CausalEEGNet in the manuscript and
+`TempAlignEEGNet` in the code.
 
 ## Contents
 
 | File | Purpose |
 |---|---|
-| `data_pipeline.py` | Loads the BALLADEER dataset, preprocesses EEG (detrend, 1–45 Hz band-pass, AF3/AF4 regression-based EOG correction), builds 2 s windows with 50-point uniformly resampled gaze contexts, applies EEG quality control (peak-to-peak 250 µV), and freezes a single window cache used by every experiment. |
-| `models_v2.py` | TempAlign-EEGNet (fixed temporal mask), TempAlignGazeOnly, TempAlignEEGOnly, and TempStructNet (learned mask with straight-through Gumbel–Softmax sampling and a −10⁹ additive penalty; deterministic binarized evaluation mask). |
-| `baselines_v2.py` | LSTM / Transformer / LTC / wavelet baselines with identical dual inputs (EEG + gaze) and a shared unmasked cross-attention fusion scheme. |
-| `metrics.py` | Pearson r, out-of-sample predictive R² (computed from errors), per-participant metrics, participant-level bootstrap CIs, paired Wilcoxon / t tests. |
-| `run_main.py` | Nested participant-level 5-fold CV runner: outer folds for evaluation, inner 20% participant split for early stopping; trains all models and the statistical baselines; saves per-run metrics and prediction files. |
-| `run_ablations.py` | No-mask, frontal-channel-excluded (8 channels), learned-mask, single-band (theta/alpha/beta), EEG-scrambled, target-shuffled, and parameter-matched variants. |
-| `run_lagged.py` | Properly lagged directional predictability analysis (16 Hz, 4 lags, blocked CV, circular-shift permutation), both directions. |
-| `verify_mask.py` | Trains fold-0 models and verifies that the maximum attention weight on temporally prohibited positions is exactly zero for both mask types; synthetic non-identifiability control for the learned delay. |
+| `data_pipeline.py` | Loads the BALLADEER dataset, preprocesses EEG (detrend, 1–45 Hz band-pass, AF3/AF4 regression-based EOG correction), builds 2 s windows with 50-point gaze contexts, applies peak-to-peak quality control, and freezes the window cache. |
+| `models_v2.py` | CausalEEGNet, its gaze-only and EEG-only variants, and the learned-mask network. |
+| `baselines_v2.py` | LSTM, Transformer, LTC, and wavelet baselines with the same dual inputs and fusion head. |
+| `metrics.py` | Pearson r, out-of-sample predictive R² (from prediction errors), per-participant metrics, participant bootstrap CIs, paired Wilcoxon and t-tests. |
+| `run_main.py` | Nested participant-level 5-fold CV: outer folds for evaluation, inner 20% of training participants for early stopping. |
+| `run_extra_models.py` | Masked LSTM and masked Transformer baselines (same EEG towers, CausalEEGNet's temporal mask). |
+| `run_ablations.py` | No-mask, frontal-excluded, learned-mask, single-band, EEG-scrambled, target-shuffled, and parameter-matched variants. |
+| `run_lagged.py` | Lagged directional analysis (16 Hz, four lags, blocked CV, circular-shift permutations), both directions. |
+| `verify_mask.py` | Verifies that attention on temporally prohibited positions is exactly zero for both mask types, and runs the synthetic delay-identifiability control. |
 | `run_channel_zeroout.py` | Per-channel zero-out importance across folds. |
-| `make_figures.py`, `make_arch_figure.py` | Generate every manuscript figure from the results registry files. |
-| `summarize_results.py`, `emit_numbers.py` | Aggregate all runs into `summary.json` and emit LaTeX number macros so that text, tables, and figures are numerically identical by construction. |
+| `summarize_results.py` | Aggregates all runs into `results/summary.json`, including the masked baselines and the `LearnedMaskNet` alias. |
+| `emit_numbers.py` | Emits `results/numbers.tex` from the registry; optionally audits a local manuscript tree if present. |
+| `make_figures.py` | Generates `figures/Fig1.pdf`–`Fig13.pdf` from the registry. |
 
-## Reproduction
+## Paths
+
+All scripts resolve paths relative to the repository root:
+
+```
+cache/        generated window cache
+results/      JSON registries and numbers.tex
+predictions/  per-window held-out predictions
+figures/      generated figures
+DATA/         BALLADEER dataset (not included)
+```
+
+## Reproduction order
 
 ```bash
-pip install torch numpy scipy pandas scikit-learn statsmodels matplotlib
-
-# 1. Build the frozen cache (requires the BALLADEER ADHD dataset at DATA/...)
 python data_pipeline.py
-
-# 2. Main comparison (nested participant-level 5-fold CV)
 python run_main.py --models TempAlignEEGNet,GazeOnly,EEGOnly,LSTM,Transformer,LTC,WaveletTransformer
-
-# 3. Statistical baselines
 python run_main.py --models StatBaselines
-
-# 4. Ablations and controls
+python run_extra_models.py --models MaskedLSTM,MaskedTransformer --seeds 42,43,44
 python run_ablations.py --variants NoMask,FrontalExcluded,TempStructNet,PermutedTarget --seeds 42,43,44
 python run_ablations.py --variants PermutedEEG,BandTheta,BandAlpha,BandBeta,LTC_param_matched --seeds 42
-
-# 5. Mask verification, lagged analysis, channel importance
 python verify_mask.py
 python run_lagged.py
 python run_channel_zeroout.py
-
-# 6. Aggregate + figures
 python summarize_results.py
+python emit_numbers.py
 python make_figures.py
 ```
 
-The pipeline is deterministic given the dataset: preprocessing uses fixed-order
-operations, window construction and fold assignment use fixed seeds
-(outer split seed 42; training seeds 42/43/44), and all models in a given
-comparison share folds, normalization statistics, and training protocol.
-GPU kernels may introduce minor nondeterminism; exact GPU nondeterminism can
-be disabled with `torch.use_deterministic_algorithms(True)` if required.
+Run the commands from the `code/` directory or use `python code/<script>.py`
+from the repository root; both resolve paths identically.
 
-## Data
-
-BALLADEER: A multimodal dataset for neurophysiological and AI applications.
-Trujillo et al., *Scientific Data* 13, 436 (2026), CC BY 4.0.
+GPU kernels may introduce minor nondeterminism; `torch.use_deterministic_algorithms(True)`
+can be enabled if exact bitwise reproducibility is required.

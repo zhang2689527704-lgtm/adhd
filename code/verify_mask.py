@@ -16,12 +16,12 @@ import numpy as np
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from models_v2 import TempAlignEEGNet, TempStructNet, _proportional_mask, MASK_NEG
+from models_v2 import TempAlignEEGNet, TempStructNet, _proportional_mask
 from run_main import load_cache, outer_folds, train_one, CFG
 from run_ablations import AblationDS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'experiments')
+RESULTS = os.path.join(HERE, '..', 'results')
 
 
 def fold0_datasets(cache, channels=None):
@@ -196,9 +196,9 @@ def main():
     print('synthetic delay recovery ...')
     report['synthetic'] = synthetic_recovery()
 
-    with open(os.path.join(OUT, 'mask_verification.json'), 'w') as f:
+    with open(os.path.join(RESULTS, 'mask_verification.json'), 'w') as f:
         json.dump(report, f, indent=1)
-    print('saved', os.path.join(OUT, 'mask_verification.json'))
+    print('saved', os.path.join(RESULTS, 'mask_verification.json'))
 
 
 if __name__ == '__main__':

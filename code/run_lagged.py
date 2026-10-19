@@ -1,5 +1,4 @@
-"""Properly lagged directional predictability analysis (replaces the
-window-level Granger test).
+"""Lagged directional predictability analysis.
 
 Design (per participant, sample level):
   - series resampled to 16 Hz: EEG (14 channels) and gaze displacement
@@ -24,14 +23,13 @@ import sys
 from multiprocessing import Pool
 
 import numpy as np
-from scipy import signal
 from sklearn.linear_model import Ridge
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from run_main import load_cache
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'experiments')
+RESULTS = os.path.join(HERE, '..', 'results')
 
 FS = 16.0
 L_LAGS = 4
@@ -116,7 +114,7 @@ def analyze_participant(payload):
 
 def build_participant_series(cache):
     """Downsample cached continuous EEG + gaze displacement series per participant."""
-    eeg_sr, gaze_sr = 128.0, 60.0
+    eeg_sr = 128.0
     out = {}
     offsets = cache['offsets']
     meta = cache['meta']
@@ -161,7 +159,7 @@ def main():
     payloads = [(pid, e, g, 12345 + pid) for pid, (e, g) in sorted(series.items())]
     with Pool(8) as pool:
         results = [r for r in pool.map(analyze_participant, payloads) if r is not None]
-    with open(os.path.join(OUT, 'lagged_analysis.json'), 'w') as f:
+    with open(os.path.join(RESULTS, 'lagged_analysis.json'), 'w') as f:
         json.dump(results, f, indent=1)
 
     import numpy as np

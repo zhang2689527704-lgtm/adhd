@@ -1,15 +1,9 @@
-"""BALLADEER data pipeline v2 (revision).
+"""Build the frozen BALLADEER window cache.
 
-Key changes vs the submitted pipeline:
-  - Gaze context is resampled to 50 uniformly spaced pseudo-samples over the
-    full 2 s window via linear interpolation, preserving the window's temporal
-    span and per-sample timestamps (t_k = t0 + k * window/50).
-  - EEG quality control: gross-artifact window rejection via peak-to-peak
-    amplitude threshold on the preprocessed signal; per-window QC statistics
-    are stored for reporting.
-  - One frozen cache shared by every downstream experiment (same windows,
-    same folds, same normalization) so that tables and figures cannot drift
-    apart.
+Gaze context is resampled to 50 uniformly spaced points over each 2 s window
+by linear interpolation (t_k = t0 + k * window/50). EEG windows are rejected
+when peak-to-peak amplitude exceeds 250 uV. All downstream experiments read
+the same cache, so windows, folds, and normalization cannot drift apart.
 """
 
 import json
@@ -34,8 +28,10 @@ HORIZON_SEC = 0.5
 N_GAZE = 50
 PTP_THRESHOLD_UV = 250.0
 
-DEFAULT_ROOT = Path('DATA/BALLADEER ADHD DATASET/BALLADEER ADHD DATASET')
-CACHE_DIR = Path('revision/cache')
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = (REPO_ROOT / 'DATA' / 'BALLADEER ADHD DATASET'
+                / 'BALLADEER ADHD DATASET')
+CACHE_DIR = REPO_ROOT / 'cache'
 
 
 def _butter_bandpass(lo, hi, fs, order=4):
@@ -59,7 +55,6 @@ class BalladeerData:
         self.step_samples = int(step_sec * eeg_sr)
         self.b_bp = _butter_bandpass(1.0, 45.0, eeg_sr)
 
-    # ---------------------------------------------------------------- loading
     def demographics(self):
         with open(self.root / 'users_demographics.json') as f:
             data = json.load(f)
@@ -82,7 +77,6 @@ class BalladeerData:
                 files['eyetracking'] = str(f)
         return files
 
-    # ------------------------------------------------------------ preprocessing
     def preprocess_eeg(self, eeg_raw):
         """Detrend -> 1-45 Hz bandpass -> regression-based EOG correction.
 
@@ -132,7 +126,6 @@ class BalladeerData:
             'interp_frac': float(np.mean(interp_flag)) if interp_flag is not None else 0.0,
         }
 
-    # ---------------------------------------------------------------- windows
     def create_windows(self, arr):
         """Sliding windows with resampled 50-point gaze contexts.
 
@@ -146,7 +139,6 @@ class BalladeerData:
         win, step = self.window_samples, self.step_samples
         horizons = int(HORIZON_SEC * self.eeg_sr)
 
-        # offset = k * window/50: uniform pseudo-sample times covering [t0, t0+2s)
         offsets = np.arange(self.n_gaze) * (self.window_sec / self.n_gaze)
 
         order = np.argsort(gaze_t)
@@ -186,7 +178,6 @@ class BalladeerData:
             })
         return windows
 
-    # ------------------------------------------------------------------ cache
     def build(self, usernames=None):
         demo = self.demographics()
         if usernames is None:

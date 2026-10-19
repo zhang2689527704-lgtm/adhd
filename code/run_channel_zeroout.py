@@ -15,7 +15,7 @@ from models_v2 import TempAlignEEGNet
 from run_main import load_cache, outer_folds, train_one, CFG, WindowDS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'experiments')
+RESULTS = os.path.join(HERE, '..', 'results')
 CHALL = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
 
 
@@ -72,7 +72,7 @@ def main():
     results['mean_delta_mse'] = arr.mean(axis=0).tolist()
     results['std_delta_mse'] = arr.std(axis=0).tolist()
     results['ranking'] = [CHALL[i] for i in np.argsort(-arr.mean(axis=0))]
-    with open(os.path.join(OUT, 'channel_zeroout.json'), 'w') as f:
+    with open(os.path.join(RESULTS, 'channel_zeroout.json'), 'w') as f:
         json.dump(results, f, indent=1)
     print('ranking:', results['ranking'])
 
