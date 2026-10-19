@@ -196,6 +196,17 @@ def main():
     if syn:
         L['SynDeltaMin'] = fmt(min(x['delta_learned'] for x in syn))
         L['SynDeltaMax'] = fmt(max(x['delta_learned'] for x in syn))
+        words = ['One', 'Two', 'Three']
+        offsets = sorted({x['target_offset'] for x in syn})
+        for word, off in zip(words, offsets):
+            vals = [x['delta_learned'] for x in syn
+                    if x['target_offset'] == off]
+            bws = [x['bandwidth'] for x in syn if x['target_offset'] == off]
+            L['SynOff' + word] = f'{off:.2f}'
+            L['SynOff' + word + 'Delta'] = fmt(sum(vals) / len(vals))
+            L['SynOff' + word + 'DeltaLo'] = fmt(min(vals))
+            L['SynOff' + word + 'DeltaHi'] = fmt(max(vals))
+            L['SynOff' + word + 'Beta'] = fmt(sum(bws) / len(bws))
 
     import numpy as np
     for k in ['LagN', 'LagEegGazeMedian', 'LagEegGazeSig', 'LagGazeEegMedian',
