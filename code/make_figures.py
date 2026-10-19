@@ -457,16 +457,14 @@ def fig6():
                              gridspec_kw={'width_ratios': [1.4, 1]})
     ax = axes[0]
     vmax = np.percentile(attn[attn > 0], 99)
-    im = ax.imshow(attn.T, aspect='auto', origin='lower', cmap='viridis',
+    im = ax.imshow(attn.T, aspect='auto', origin='lower', cmap='hot',
                    extent=[0, 256, 0, 50], vmin=0, vmax=vmax)
-    T, S = 256, 50
-    j = np.arange(S)
-    ax.plot(j * T / S, j, 'r--', lw=1, label='temporal boundary $j=iS/T$')
     ax.set_xlabel('EEG position $i$ (time)')
     ax.set_ylabel('Gaze position $j$ (time)')
     ax.set_title('(a) Mean cross-attention weights', fontsize=9)
-    ax.legend(fontsize=6.0, loc='upper left')
-    plt.colorbar(im, ax=ax, fraction=0.046)
+    cb = plt.colorbar(im, ax=ax, fraction=0.046)
+    cb.set_label('Attention weight', fontsize=5.8)
+    cb.ax.tick_params(labelsize=6)
 
     ax = axes[1]
     t = np.arange(256) / 128.0
@@ -480,6 +478,8 @@ def fig6():
     ax.set_xlabel('Time within window (s)')
     ax.set_ylabel('Max attention weight (log scale)')
     ax.set_title('(b) Per-sample max attention', fontsize=9)
+    ax.grid(lw=0.3, alpha=0.35)
+    ax.set_axisbelow(True)
     ax.legend(fontsize=5.6, loc='upper right', frameon=False,
               handlelength=1.4, labelspacing=0.25)
     fig.tight_layout()
@@ -555,40 +555,49 @@ def fig8():
                           left=0.07, right=0.97, top=0.96, bottom=0.13)
 
     ax = fig.add_subplot(gs[0, 0])
-    im = ax.imshow(soft, origin='lower', aspect='auto', cmap='viridis',
+    im = ax.imshow(soft, origin='lower', aspect='auto', cmap='RdYlGn',
                    extent=[0, S, 0, T], vmin=0, vmax=1)
-    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=1)
+    ax.plot(np.arange(S), np.arange(S) * T / S, 'k--', lw=0.9,
+            label=rf'Learned boundary ($\delta$={delta:.3f})')
     ax.set_xlabel('Gaze position $j$\n(a) Learned soft mask', fontsize=7.5)
     ax.set_ylabel('EEG position $i$')
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    ax.legend(fontsize=5.5, loc='upper center', framealpha=0.85)
+    cb = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    cb.set_label('Attention weight', fontsize=5.8)
+    cb.ax.tick_params(labelsize=6)
 
     ax = fig.add_subplot(gs[0, 1])
     diff = soft - allowed
     im = ax.imshow(diff, origin='lower', aspect='auto', cmap='RdBu_r',
-                   extent=[0, S, 0, T], vmin=-1, vmax=1)
+                   extent=[0, S, 0, T], vmin=-0.4, vmax=0.4)
     ax.plot(np.arange(S), np.arange(S) * T / S, 'k--', lw=0.8)
     ax.set_xlabel('Gaze position $j$\n(b) Learned minus fixed mask',
                   fontsize=7.5)
     ax.set_ylabel('EEG position $i$')
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    cb = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    cb.set_label('Difference', fontsize=5.8)
+    cb.ax.tick_params(labelsize=6)
 
     ax = fig.add_subplot(gs[1, 0])
     if history is not None:
         n = int(np.argmin(history['inner_loss'])) + 1
         ep = np.arange(1, n + 1)
         curve = np.array(history['delay'][1:n + 1])
-        ax.plot(ep, curve, color=BLUE, lw=1.2, label='Learned delay')
-        ax.axhline(curve[-1], color=RED, ls='--', lw=1.0,
-                   label=f'Final = {curve[-1]:.3f}')
+        ax.plot(ep, curve, color='tab:blue', lw=1.2, label='Learned delay')
+        ax.axhline(curve[-1], color='tab:red', ls='--', lw=1.0, alpha=0.6,
+                   label=f'Final delay = {curve[-1]:.3f}')
         ax2 = ax.twinx()
-        ax2.plot(ep, history['temperature'][:n], color=GREEN, ls=':', lw=1.0)
-        ax2.set_ylabel('Temperature', color=GREEN, fontsize=7)
-        ax2.tick_params(axis='y', colors=GREEN, labelsize=6.5)
+        ax2.plot(ep, history['temperature'][:n], color='tab:green',
+                 ls='--', lw=1.0, alpha=0.7)
+        ax2.set_ylabel('Temperature', color='tab:green', fontsize=7)
+        ax2.tick_params(axis='y', colors='tab:green', labelsize=6.5)
         ax.legend(fontsize=5.8, loc='upper right', frameon=False)
     else:
-        ax.hist(delays, bins=8, color=BLUE, alpha=0.85)
-        ax.axvline(0.15, color=RED, lw=1.1, ls=':')
-        ax.axvline(delta, color=RED, lw=1.1)
+        ax.hist(delays, bins=8, color='tab:blue', alpha=0.85)
+        ax.axvline(0.15, color='tab:red', lw=1.1, ls=':')
+        ax.axvline(delta, color='tab:red', lw=1.1)
+    ax.grid(lw=0.3, alpha=0.35)
+    ax.set_axisbelow(True)
     if history is not None:
         ax.set_xlabel('Epoch\n(c) Delay evolution during training',
                       fontsize=7.2)
@@ -600,9 +609,10 @@ def fig8():
     ax = fig.add_subplot(gs[1, 1])
     if history is not None:
         curve = np.array(history['bandwidth'][1:n + 1])
-        ax.plot(ep, curve, color=BLUE, lw=1.2, label='Learned bandwidth')
-        ax.axhline(curve[-1], color=RED, ls='--', lw=1.0,
-                   label=f'Final = {curve[-1]:.3f}')
+        ax.plot(ep, curve, color='tab:blue', lw=1.2,
+                label='Learned bandwidth')
+        ax.axhline(curve[-1], color='tab:red', ls='--', lw=1.0, alpha=0.6,
+                   label=f'Final bandwidth = {curve[-1]:.3f}')
         ax.legend(fontsize=5.8, loc='lower right', frameon=False)
     else:
         means = [np.mean([s['delta_learned'] for s in syn
@@ -613,6 +623,8 @@ def fig8():
         ax.set_xticks(range(len(offsets)))
         ax.set_xticklabels([f'{o:.2f}' for o in offsets])
         ax.set_ylim(0, 0.2)
+    ax.grid(lw=0.3, alpha=0.35)
+    ax.set_axisbelow(True)
     if history is not None:
         ax.set_xlabel('Epoch\n(d) Bandwidth evolution during training',
                       fontsize=7.2)
