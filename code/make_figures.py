@@ -716,10 +716,11 @@ def fig9():
         patch.set_facecolor(c)
         patch.set_alpha(0.6)
     ax.axhline(0, color='k', lw=0.6)
-    ax.set_ylabel('Relative MSE improvement (CV)')
-    ax.set_title(f"(a) Lagged predictability (L=4, 16 Hz)\n"
-                 f"sig={int((p1<0.05).sum())}/{len(p1)} vs "
-                 f"{int((p2<0.05).sum())}/{len(p2)}", fontsize=9)
+    ax.set_ylabel('Relative MSE improvement (CV)', fontsize=8)
+    ax.set_xlabel(f"(a) Lagged predictability (L=4, 16 Hz)\n"
+                  f"sig={int((p1<0.05).sum())}/{len(p1)} vs "
+                  f"{int((p2<0.05).sum())}/{len(p2)}", fontsize=7.5,
+                  labelpad=6)
 
     ax = axes[1]
     bins = np.linspace(0, 1, 21)
@@ -728,10 +729,10 @@ def fig9():
     ax.hist(p2, bins=bins, alpha=0.55, color=ORANGE,
             label='Gaze$\\rightarrow$EEG')
     ax.axvline(0.05, color=RED, ls='--', lw=1, label='p=0.05')
-    ax.set_xlabel('Permutation p-value')
+    ax.set_xlabel('Permutation p-value\n(b) Null distribution check',
+                  fontsize=7.5, labelpad=4)
     ax.set_ylabel('Participants')
     ax.legend(fontsize=6.5)
-    ax.set_title('(b) Null distribution check', fontsize=9)
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig9.pdf'))
     plt.close(fig)
