@@ -472,8 +472,10 @@ def fig6():
     if os.path.exists(profile_path):
         d = json.load(open(profile_path))
         attn = np.array(d['mean_attention'])
-        samples = np.array(d['sample_profiles'])
-        mean_prof = np.array(d['mean_profile'])
+        samples = np.array(d.get('sample_profiles_max',
+                                 d.get('sample_profiles')))
+        mean_prof = np.array(d.get('mean_profile_max',
+                                   d.get('mean_profile')))
     else:
         attn = np.array(load('mask_verification.json')['fixed_mask']['mean_attention'])
         samples = None
