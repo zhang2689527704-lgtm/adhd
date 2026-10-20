@@ -306,9 +306,9 @@ def fig3():
 
 def model_stats():
     s = load('summary.json')
-    order = ['LSTM', 'MaskedLSTM', 'Transformer', 'MaskedTransformer', 'LTC',
-             'WaveletTransformer', 'GazeOnly', 'EEGOnly', 'TempAlignEEGNet',
-             'LearnedMaskNet', 'RidgeGaze', 'PersistenceTrend',
+    order = ['TempAlignEEGNet', 'GazeOnly', 'EEGOnly', 'LearnedMaskNet',
+             'LSTM', 'MaskedLSTM', 'Transformer', 'MaskedTransformer', 'LTC',
+             'WaveletTransformer', 'RidgeGaze', 'PersistenceTrend',
              'MeanPredictor']
     labels = {'LSTM': 'LSTM', 'MaskedLSTM': 'M-LSTM',
               'Transformer': 'Transformer',
@@ -325,8 +325,8 @@ def model_stats():
     rc_ci = [s['models'][n]['r_col_ci95'] for n in order if n in s['models']]
     rr = [s['models'][n]['r_row_mean'] for n in order if n in s['models']]
     rr_ci = [s['models'][n]['r_row_ci95'] for n in order if n in s['models']]
-    colors = [GRAY, '#9DC3E6', GRAY, '#C5B4E3', ORANGE, RED, BLUE, PURPLE,
-              GREEN, '#F2C14E', GRAY, GRAY, LIGHTGRAY][:len(names)]
+    colors = [GREEN, BLUE, PURPLE, '#F2C14E', GRAY, '#9DC3E6', GRAY,
+              '#C5B4E3', ORANGE, RED, GRAY, GRAY, LIGHTGRAY][:len(names)]
     return names, rmse, rmse_ci, rc, rc_ci, rr, rr_ci, colors
 
 
