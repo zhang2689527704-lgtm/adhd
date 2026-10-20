@@ -617,13 +617,15 @@ def fig8():
     ax = fig.add_subplot(gs[1, 0])
     if history is not None:
         n = int(np.argmin(history['inner_loss'])) + 1
-        ep = np.arange(1, n + 1)
-        curve = np.array(history['delay'][1:n + 1])
+        ep = np.array(history['epoch'][:-1])
+        curve = np.array(history['delay'][:-1])
         ax.plot(ep, curve, color='tab:blue', lw=1.2, label='Learned delay')
-        ax.axhline(curve[-1], color='tab:red', ls='--', lw=1.0, alpha=0.6,
-                   label=f'Final delay = {curve[-1]:.3f}')
+        ax.axvline(n, color='0.55', ls=':', lw=0.9, label='Selected epoch')
+        ax.axhline(history['delay'][-1], color='tab:red', ls='--', lw=1.0,
+                   alpha=0.6,
+                   label=f'Selected delay = {history["delay"][-1]:.3f}')
         ax2 = ax.twinx()
-        ax2.plot(ep, history['temperature'][:n], color='tab:green',
+        ax2.plot(ep, history['temperature'][:-1], color='tab:green',
                  ls='--', lw=1.0, alpha=0.7)
         ax2.set_ylabel('Temperature', color='tab:green', fontsize=7)
         ax2.tick_params(axis='y', colors='tab:green', labelsize=6.5)
@@ -644,11 +646,13 @@ def fig8():
 
     ax = fig.add_subplot(gs[1, 1])
     if history is not None:
-        curve = np.array(history['bandwidth'][1:n + 1])
+        curve = np.array(history['bandwidth'][:-1])
         ax.plot(ep, curve, color='tab:blue', lw=1.2,
                 label='Learned bandwidth')
-        ax.axhline(curve[-1], color='tab:red', ls='--', lw=1.0, alpha=0.6,
-                   label=f'Final bandwidth = {curve[-1]:.3f}')
+        ax.axvline(n, color='0.55', ls=':', lw=0.9, label='Selected epoch')
+        ax.axhline(history['bandwidth'][-1], color='tab:red', ls='--', lw=1.0,
+                   alpha=0.6,
+                   label=f'Selected bandwidth = {history["bandwidth"][-1]:.3f}')
         ax.legend(fontsize=5.8, loc='lower right', frameon=False)
     else:
         means = [np.mean([s['delta_learned'] for s in syn
