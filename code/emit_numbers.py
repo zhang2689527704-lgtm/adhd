@@ -207,13 +207,14 @@ def main():
 
     for k in ['MaxBlockedAttnFixed', 'MaxBlockedAttnLearned', 'LearnedDelayNorm',
               'LearnedDelayMs', 'LearnedBandwidth', 'SynDeltaMin', 'SynDeltaMax',
-              'VerEpochs', 'InitDelay']:
+              'VerEpochs', 'InitDelay', 'MeanRowMass']:
         L.setdefault(k, MISSING)
     L['InitDelay'] = '0.15'
     fm = ver.get('fixed_mask', {})
     lm = ver.get('learned_mask', {})
     if fm:
         L['MaxBlockedAttnFixed'] = f"{fm.get('max_attention_on_blocked', 0):.1e}"
+        L['MeanRowMass'] = fmt(fm.get('mean_row_mass'), 3)
         L['VerEpochs'] = str(fm.get('train_epochs', ''))
     if lm:
         L['MaxBlockedAttnLearned'] = f"{lm.get('max_attention_on_blocked', 0):.1e}"
