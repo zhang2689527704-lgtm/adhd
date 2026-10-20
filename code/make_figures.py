@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import TwoSlopeNorm
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 plt.rcParams.update({
@@ -529,11 +530,12 @@ def fig7():
            'T8': (0.85, 0.0), 'P7': (-0.6, -0.5), 'P8': (0.6, -0.5),
            'O1': (-0.3, -0.85), 'O2': (0.3, -0.85)}
     vals = np.array(d['mean_delta_mse'])
-    norm = np.clip(vals / vals.max(), 0, 1)
-    cmap = plt.cm.RdYlBu_r
+    norm = TwoSlopeNorm(vmin=float(vals.min()), vcenter=0.0,
+                        vmax=float(vals.max()))
+    cmap = plt.cm.RdBu_r
     for c, (cx, cy) in pos.items():
         i = ch.index(c)
-        rgba = cmap(norm[i])
+        rgba = cmap(norm(vals[i]))
         lum = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
         ax.scatter(cx, cy, s=520, color=rgba, edgecolor='k', lw=0.5,
                    zorder=2)
@@ -541,9 +543,9 @@ def fig7():
                 color='white' if lum < 0.5 else 'black', zorder=3)
     ax.add_patch(plt.Circle((0, 0), 1.20, fill=False, ec='k', lw=1.0))
     ax.plot([-0.18, 0, 0.18], [1.16, 1.34, 1.16], 'k-', lw=1.0)
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 1))
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     cb = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.03)
-    cb.set_label('Relative importance', fontsize=7)
+    cb.set_label('MSE increase (z-score$^2$)', fontsize=7)
     cb.ax.tick_params(labelsize=6.5)
     ax.set_xlim(-1.30, 1.30)
     ax.set_ylim(-1.30, 1.42)
