@@ -68,14 +68,14 @@ def panel_caption(ax, text, y=-0.28):
 def fig1():
     rows = list(csv.DictReader(open(os.path.join(
         RESULTS, 'participant_demographics.csv'))))
-    groups = [('ADHD', 'yes', ORANGE), ('Control', 'no', BLUE),
-              ('Undetermined', 'undetermined', GRAY)]
+    groups = [('ADHD', 'yes', '#2CA02C'), ('Control', 'no', '#FF7F0E'),
+              ('Undetermined', 'undetermined', '#7F7F7F')]
     counts = [sum(1 for r in rows if r['diagnosed'] == g)
               for _, g, _ in groups]
     ages = [[float(r['age']) for r in rows if r['diagnosed'] == g]
             for _, g, _ in groups]
 
-    fig, axes = plt.subplots(1, 2, figsize=(3.35, 2.4),
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.6),
                              gridspec_kw={'width_ratios': [1.1, 1]})
     tick = ['ADHD', 'Control', 'Undet.']
     axes[0].bar(range(3), counts, color=[c for _, _, c in groups])
@@ -264,7 +264,7 @@ def fig3():
     panel_caption(ax, '(a) Training and validation loss', y=-0.30)
 
     ax = axes[1]
-    ax.plot(ep, h['inner_rmse'], color=GREEN, lw=1.3)
+    ax.plot(ep, h['inner_rmse'], color=ORANGE, lw=1.3)
     ax.axvline(best, color=GRAY, ls=':', lw=0.9)
     ax.set_ylabel('RMSE (z units)')
     panel_caption(ax, '(b) Validation RMSE', y=-0.30)
@@ -279,6 +279,7 @@ def fig3():
     panel_caption(ax, '(c) Prediction correlation over epochs', y=-0.30)
 
     for ax in axes:
+        ax.set_xlim(0, len(ep) + 1)
         ax.set_xlabel('Epoch', fontsize=7)
         ax.tick_params(labelsize=6.5, pad=2)
         ax.grid(lw=0.3, alpha=0.35)
@@ -425,7 +426,7 @@ def fig5():
         rr.append(np.mean([r['r_row'] for r in runs]))
         rr_ci.append(1.96 * np.std([r['r_row'] for r in runs], ddof=1)
                      / np.sqrt(n))
-    colors = [RED] + [BLUE, ORANGE, GREEN][:len(names) - 1]
+    colors = [RED, BLUE, '#2CA25F', '#B0B0B0'][:len(names)]
 
     fig = plt.figure(figsize=(7.0, 4.7))
     gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 1.0], hspace=0.7,
@@ -447,19 +448,21 @@ def fig5():
     soft = 1.0 / (1.0 + np.exp(-(((i / T - d['delay_normalized']) - (j / S))
                                  / d['bandwidth'])))
     ax = fig.add_subplot(gs[1, 0:3])
-    ax.imshow(allowed, origin='lower', aspect='auto', cmap='Blues',
-              extent=[0, S, 0, T], vmin=0, vmax=1.2)
-    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=0.9)
-    ax.set_xlabel('Gaze position $j$\n(d) Fixed temporal mask', fontsize=8)
-    ax.set_ylabel('EEG position $i$', fontsize=8.5)
+    im = ax.imshow(allowed, origin='lower', aspect='auto', cmap='Blues',
+                   extent=[0, 30, 0, 30], vmin=0, vmax=1.2)
+    ax.plot([0, 30], [0, 30], 'r--', lw=0.9)
+    ax.set_xlabel('Gaze position $j$ (normalized)\n'
+                  '(d) Fixed temporal mask', fontsize=8)
+    ax.set_ylabel('EEG position $i$ (normalized)', fontsize=8.5)
     ax.tick_params(labelsize=7.5, pad=2)
 
     ax = fig.add_subplot(gs[1, 3:6])
-    im = ax.imshow(soft, origin='lower', aspect='auto', cmap='viridis',
-                   extent=[0, S, 0, T], vmin=0, vmax=1)
-    ax.plot(np.arange(S), np.arange(S) * T / S, 'r--', lw=0.9)
-    ax.set_xlabel('Gaze position $j$\n(e) Learned soft mask', fontsize=8)
-    ax.set_ylabel('EEG position $i$', fontsize=8.5)
+    im = ax.imshow(soft, origin='lower', aspect='auto', cmap='Greens',
+                   extent=[0, 30, 0, 30], vmin=0, vmax=1)
+    ax.plot([0, 30], [0, 30], 'r--', lw=0.9)
+    ax.set_xlabel('Gaze position $j$ (normalized)\n'
+                  '(e) Learned soft mask', fontsize=8)
+    ax.set_ylabel('EEG position $i$ (normalized)', fontsize=8.5)
     ax.tick_params(labelsize=7.5, pad=2)
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
 
@@ -728,8 +731,8 @@ def fig10():
     n = len(res)
     sig = int((p < 0.05).sum())
 
-    fig, axes = plt.subplots(1, 2, figsize=(3.35, 2.7))
-    fig.subplots_adjust(left=0.17, right=0.97, top=0.95, bottom=0.2,
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6))
+    fig.subplots_adjust(left=0.09, right=0.98, top=0.95, bottom=0.22,
                         wspace=0.5)
 
     ax = axes[0]
@@ -806,7 +809,7 @@ def fig12():
     fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.6))
     ax = axes[0]
     x = np.arange(len(names))
-    ax.bar(x, r, yerr=ci, color=[GREEN, ORANGE, RED][:len(names)], capsize=2)
+    ax.bar(x, r, yerr=ci, color=[RED, '#8C8C8C', '#9DC3E6'][:len(names)], capsize=2)
     ax.axhline(0, color='k', lw=0.6)
     ax.set_xticks(x)
     ax.set_xticklabels([labels[n] for n in names], fontsize=7)
@@ -841,22 +844,26 @@ def fig13():
         RESULTS, 'per_participant_metrics.csv'))))
     rc = np.array([float(r['r_col']) for r in rows])
     rr = np.array([float(r['r_row']) for r in rows])
-    fig, axes = plt.subplots(1, 2, figsize=(3.35, 2.5))
-    fig.subplots_adjust(left=0.17, right=0.97, top=0.95, bottom=0.22,
-                        wspace=0.45)
-    for ax, v, lab, tag in [(axes[0], rc, 'col', 'a'),
-                            (axes[1], rr, 'row', 'b')]:
+    pooled = load('summary.json')['models']['TempAlignEEGNet']['pooled']
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.7))
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.90, bottom=0.18,
+                        wspace=0.28)
+    for ax, v, lab, tag, pk in [(axes[0], rc, 'col', 'a', 'r_col'),
+                                (axes[1], rr, 'row', 'b', 'r_row')]:
         ax.hist(v, bins=18, color=BLUE, alpha=0.85, edgecolor='white')
-        ax.axvline(v.mean(), color=RED, lw=1.1)
-        ax.set_xlabel(rf'per-participant $r_{{\Delta\mathrm{{{lab}}}}}$',
-                      fontsize=6.5)
-        ax.set_ylabel('Count', fontsize=6.5)
-        ax.tick_params(labelsize=6, pad=1)
-        ax.text(0.03, 0.95, f'mean = {v.mean():.3f}\n(n = {len(v)})',
-                transform=ax.transAxes, ha='left', va='top', fontsize=6)
-        ax.text(0.5, -0.30, f'({tag}) ' + ('Horizontal' if lab == 'col'
-                else 'Vertical'), transform=ax.transAxes, ha='center',
-                fontsize=7.5)
+        ax.axvline(v.mean(), color=RED, lw=1.2,
+                   label=f'Mean = {v.mean():.3f}')
+        ax.axvline(pooled[pk], color=GREEN, ls='--', lw=1.2,
+                   label=f'Overall = {pooled[pk]:.3f}')
+        ax.set_title(rf'({tag}) $r_{{\Delta\mathrm{{{lab}}}}}$ distribution '
+                     f'(n = {len(v)})', fontsize=8.5)
+        ax.set_xlabel(rf'Per-participant $r_{{\Delta\mathrm{{{lab}}}}}$',
+                      fontsize=7.5)
+        ax.set_ylabel('Count', fontsize=7.5)
+        ax.grid(lw=0.3, alpha=0.35)
+        ax.set_axisbelow(True)
+        ax.legend(fontsize=6.2, frameon=True, loc='upper right')
+        ax.tick_params(labelsize=6.8, pad=2)
     fig.savefig(os.path.join(FIGURES, 'Fig13.pdf'))
     plt.close(fig)
 
