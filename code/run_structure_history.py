@@ -1,7 +1,12 @@
 """Record the learned delay and bandwidth at every training epoch for one
 representative learned-mask run (fold 0, seed 42). Used for Fig. 8(c,d).
+
+Usage:
+  python run_structure_history.py
+  python run_structure_history.py --epochs 50 --out learned_structure_history_50.json
 """
 
+import argparse
 import json
 import os
 
@@ -17,6 +22,17 @@ os.makedirs(RESULTS, exist_ok=True)
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--epochs', type=int, default=None)
+    ap.add_argument('--out', default='learned_structure_history.json')
+    args = ap.parse_args()
+
+    cfg = dict(CFG)
+    if args.epochs:
+        cfg['epochs'] = args.epochs
+        cfg['patience'] = args.epochs
+        cfg['min_epochs'] = args.epochs
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     cache = load_cache()
     folds = outer_folds(cache['pid'], seed=42)
@@ -37,7 +53,7 @@ def main():
     hist = {'epoch': [], 'delay': [], 'bandwidth': [], 'temperature': []}
 
     def on_epoch(m, ep):
-        m.set_temperature(max(0.1, 1.0 * (0.1 / 1.0) ** (ep / CFG['epochs'])))
+        m.set_temperature(max(0.1, 1.0 * (0.1 / 1.0) ** (ep / cfg['epochs'])))
         hist['epoch'].append(int(ep))
         hist['delay'].append(float(m.delay.detach()))
         hist['bandwidth'].append(float(m.bandwidth.detach()))
@@ -45,7 +61,7 @@ def main():
 
     model._on_epoch = on_epoch
     model, ep, best, loss_hist = train_one(
-        model, tr_ds, inner_ds, CFG, device, seed=42)
+        model, tr_ds, inner_ds, cfg, device, seed=42)
 
     hist['epoch'].append(int(ep) + 1)
     hist['delay'].append(float(model.delay.detach()))
@@ -54,7 +70,7 @@ def main():
     hist['final_epoch'] = int(ep)
     hist['inner_loss'] = [float(x) for x in loss_hist]
 
-    path = os.path.join(RESULTS, 'learned_structure_history.json')
+    path = os.path.join(RESULTS, args.out)
     with open(path, 'w') as f:
         json.dump(hist, f, indent=1)
     print('saved', path)

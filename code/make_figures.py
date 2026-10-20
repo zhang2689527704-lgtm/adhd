@@ -592,11 +592,12 @@ def fig8():
 
     ax = fig.add_subplot(gs[0, 0])
     im = ax.imshow(soft, origin='lower', aspect='auto', cmap='RdYlGn',
-                   extent=[0, S, 0, T], vmin=0, vmax=1)
-    ax.plot(np.arange(S), np.arange(S) * T / S, 'k--', lw=0.9,
+                   extent=[0, 30, 0, 30], vmin=0, vmax=1)
+    ax.plot([0, 30], [0, 30], 'k--', lw=0.9,
             label=rf'Learned boundary ($\delta$={delta:.3f})')
-    ax.set_xlabel('Gaze position $j$\n(a) Learned soft mask', fontsize=7.5)
-    ax.set_ylabel('EEG position $i$')
+    ax.set_xlabel('Gaze position $j$ (normalized)\n(a) Learned soft mask',
+                  fontsize=7.5)
+    ax.set_ylabel('EEG position $i$ (normalized)')
     ax.legend(fontsize=5.5, loc='upper center', framealpha=0.85)
     cb = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
     cb.set_label('Attention weight', fontsize=5.8)
@@ -605,11 +606,11 @@ def fig8():
     ax = fig.add_subplot(gs[0, 1])
     diff = soft - allowed
     im = ax.imshow(diff, origin='lower', aspect='auto', cmap='RdBu_r',
-                   extent=[0, S, 0, T], vmin=-0.4, vmax=0.4)
-    ax.plot(np.arange(S), np.arange(S) * T / S, 'k--', lw=0.8)
-    ax.set_xlabel('Gaze position $j$\n(b) Learned minus fixed mask',
-                  fontsize=7.5)
-    ax.set_ylabel('EEG position $i$')
+                   extent=[0, 30, 0, 30], vmin=-0.4, vmax=0.4)
+    ax.plot([0, 30], [0, 30], 'k--', lw=0.8)
+    ax.set_xlabel('Gaze position $j$ (normalized)\n'
+                  '(b) Learned minus fixed mask', fontsize=7.5)
+    ax.set_ylabel('EEG position $i$ (normalized)')
     cb = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
     cb.set_label('Difference', fontsize=5.8)
     cb.ax.tick_params(labelsize=6)
