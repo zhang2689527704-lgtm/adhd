@@ -544,7 +544,7 @@ def fig7():
             color=BLUE, capsize=2)
     ax.set_yticks(range(len(ch)))
     ax.set_yticklabels([ch[i] for i in order][::-1], fontsize=7)
-    ax.set_xlabel('MSE increase when channel zeroed (z-score$^2$)\n'
+    ax.set_xlabel('MSE increase (training mean; z-score$^2$)\n'
                   '(a) Per-channel contribution (gaze changes)', fontsize=7.5)
 
     ax = axes[1]
