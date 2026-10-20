@@ -344,8 +344,8 @@ def bars3(axs, names, series, colors, ylabels, captions, value_labels):
 
 def fig4():
     names, rmse, rmse_ci, rc, rc_ci, rr, rr_ci, colors = model_stats()
-    fig = plt.figure(figsize=(7.0, 4.9))
-    gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 0.95], hspace=0.75,
+    fig = plt.figure(figsize=(7.0, 5.3))
+    gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 0.95], hspace=1.05,
                           wspace=0.9, left=0.06, right=0.99, top=0.95,
                           bottom=0.10)
     axs = [fig.add_subplot(gs[0, 0:2]), fig.add_subplot(gs[0, 2:4]),
@@ -365,17 +365,23 @@ def fig4():
             ax = fig.add_subplot(gs[1, span])
             q = np.percentile(np.abs(t[:, k]), 99.5)
             m = np.abs(t[:, k]) <= q
-            ax.scatter(t[m, k], p[m, k], s=2.2, alpha=0.25, color=BLUE,
+            qy = np.percentile(np.abs(p[m, k]), 99.5)
+            qmax = max(q, qy)
+            ax.scatter(t[m, k], p[m, k], s=2.4, alpha=0.30, color='0.55',
                        edgecolors='none', rasterized=True)
             ax.axhline(0, color='0.75', lw=0.6, zorder=0)
-            ax.set_xlim(-q, q)
-            qy = np.percentile(np.abs(p[m, k]), 99.5)
-            ax.set_ylim(-qy, qy)
+            ax.plot([-qmax, qmax], [-qmax, qmax], 'r--', lw=1.0,
+                    label='Perfect prediction')
+            ax.set_xlim(-qmax, qmax)
+            ax.set_ylim(-qmax, qmax)
             rk = 'r_col' if lab == 'col' else 'r_row'
             r2k = 'R2_col' if lab == 'col' else 'R2_row'
-            ax.text(0.03, 0.96,
-                    f"$r$ = {pooled[rk]:.3f}\n$R^2$ = {pooled[r2k]:.3f}",
-                    transform=ax.transAxes, ha='left', va='top', fontsize=7)
+            ax.set_title(f"$\\Delta${lab}: $r$ = {pooled[rk]:.3f}, "
+                         f"$R^2$ = {pooled[r2k]:.3f}", fontsize=8)
+            ax.grid(lw=0.3, alpha=0.35)
+            ax.set_axisbelow(True)
+            ax.legend(fontsize=6, loc='upper left', frameon=True,
+                      handlelength=1.4)
             ax.set_xlabel(f'Actual $\\Delta${lab} (z)\n'
                           + f'({tag}) ' + ('Horizontal' if lab == 'col'
                                            else 'Vertical')
