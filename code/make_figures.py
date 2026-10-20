@@ -20,7 +20,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 plt.rcParams.update({
     'font.family': 'serif', 'font.size': 8,
-    'axes.spines.top': False, 'axes.spines.right': False,
+    'axes.spines.top': True, 'axes.spines.right': True,
     'figure.dpi': 120, 'savefig.dpi': 300, 'savefig.bbox': 'tight',
 })
 
