@@ -520,8 +520,8 @@ def fig7():
             color=BLUE, capsize=2)
     ax.set_yticks(range(len(ch)))
     ax.set_yticklabels([ch[i] for i in order][::-1], fontsize=7)
-    ax.set_xlabel('MSE increase when channel zeroed (z-score$^2$)')
-    ax.set_title('(a) Per-channel contribution (gaze changes)', fontsize=9)
+    ax.set_xlabel('MSE increase when channel zeroed (z-score$^2$)\n'
+                  '(a) Per-channel contribution (gaze changes)', fontsize=7.5)
 
     ax = axes[1]
     pos = {'AF3': (-0.35, 0.9), 'AF4': (0.35, 0.9), 'F7': (-0.7, 0.6),
@@ -551,7 +551,8 @@ def fig7():
     ax.set_ylim(-1.30, 1.42)
     ax.set_aspect('equal')
     ax.axis('off')
-    ax.set_title('(b) Topographic importance map', fontsize=9)
+    ax.text(0.5, -0.10, '(b) Topographic importance map',
+            transform=ax.transAxes, ha='center', va='top', fontsize=7.5)
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig7.pdf'))
     plt.close(fig)
