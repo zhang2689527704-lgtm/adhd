@@ -510,17 +510,23 @@ def fig7():
     d = load('channel_zeroout.json')
     ch = d['channels']
     mean = np.array(d['mean_delta_mse'])
-    std = np.array(d['std_delta_mse'])
-    order = np.argsort(-mean)
+    order = np.argsort(mean)
+    norm = np.clip(mean / mean.max(), 0, 1)
+    cmap = plt.cm.RdYlBu_r
 
-    fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.8))
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9),
+                             gridspec_kw={'width_ratios': [1.25, 1]})
     ax = axes[0]
-    ax.barh(range(len(ch)), mean[order][::-1], xerr=std[order][::-1],
-            color=BLUE, capsize=2)
-    ax.set_yticks(range(len(ch)))
-    ax.set_yticklabels([ch[i] for i in order][::-1], fontsize=7)
-    ax.set_xlabel('MSE increase when channel zeroed (z-score$^2$)')
-    ax.set_title('(a) Per-channel contribution (gaze changes)', fontsize=9)
+    y = np.arange(len(ch))
+    ax.barh(y, norm[order], color=cmap(norm[order]), edgecolor='k', lw=0.5)
+    ax.set_yticks(y)
+    ax.set_yticklabels([ch[i] for i in order], fontsize=6.5)
+    ax.set_xlim(0, 1.05)
+    ax.set_xlabel('Relative importance (normalized)\n'
+                  '(a) Channel importance ranking', fontsize=7.5)
+    ax.grid(axis='x', lw=0.3, alpha=0.35)
+    ax.set_axisbelow(True)
+    ax.tick_params(labelsize=6.5, pad=2)
 
     ax = axes[1]
     pos = {'AF3': (-0.35, 0.9), 'AF4': (0.35, 0.9), 'F7': (-0.7, 0.6),
@@ -528,20 +534,25 @@ def fig7():
            'FC5': (-0.6, 0.3), 'FC6': (0.6, 0.3), 'T7': (-0.85, 0.0),
            'T8': (0.85, 0.0), 'P7': (-0.6, -0.5), 'P8': (0.6, -0.5),
            'O1': (-0.3, -0.85), 'O2': (0.3, -0.85)}
-    vals = np.array(d['mean_delta_mse'])
-    vmax = np.abs(vals).max()
     for c, (cx, cy) in pos.items():
         i = ch.index(c)
-        col = plt.cm.Reds(0.15 + 0.85 * vals[i] / vmax)
-        ax.scatter(cx, cy, s=650, color=col, edgecolor='k', lw=0.5, zorder=2)
-        ax.text(cx, cy, c, ha='center', va='center', fontsize=6.5, zorder=3)
-    sm = plt.cm.ScalarMappable(cmap='Reds', norm=plt.Normalize(0, vmax))
-    plt.colorbar(sm, ax=ax, fraction=0.046, label='MSE increase')
-    ax.set_xlim(-1.15, 1.15)
-    ax.set_ylim(-1.15, 1.15)
+        rgba = cmap(norm[i])
+        lum = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
+        ax.scatter(cx, cy, s=320, color=rgba, edgecolor='k',
+                   lw=0.5, zorder=2)
+        ax.text(cx, cy, c, ha='center', va='center', fontsize=5.2,
+                color='white' if lum < 0.5 else 'black', zorder=3)
+    ax.add_patch(plt.Circle((0, 0), 1.05, fill=False, ec='k', lw=1.0))
+    ax.plot([-0.16, 0, 0.16], [1.02, 1.18, 1.02], 'k-', lw=1.0)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 1))
+    cb = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.03)
+    cb.set_label('Relative importance', fontsize=6.5)
+    cb.ax.tick_params(labelsize=6)
+    ax.set_xlim(-1.25, 1.25)
+    ax.set_ylim(-1.25, 1.3)
     ax.set_aspect('equal')
     ax.axis('off')
-    ax.set_title('(b) Topographic importance map', fontsize=9)
+    ax.set_title('(b) Topographic importance map', fontsize=7.5, y=-0.14)
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig7.pdf'))
     plt.close(fig)
