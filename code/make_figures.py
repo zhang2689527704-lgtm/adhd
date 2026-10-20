@@ -100,6 +100,19 @@ def fig1():
 
 
 def fig2():
+    src = os.path.join(FIGURES, 'Fig2_source.jpg')
+    if os.path.exists(src):
+        im = plt.imread(src)
+        h, w = im.shape[:2]
+        dpi = 300
+        fig = plt.figure(figsize=(w / dpi, h / dpi), dpi=dpi)
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.imshow(im, interpolation='none')
+        ax.set_axis_off()
+        fig.savefig(os.path.join(FIGURES, 'Fig2.pdf'), pad_inches=0)
+        plt.close(fig)
+        return
+
     blue, orange = '#4C72B0', '#DD8452'
     gray_fill, gray_edge = '#f2f2f2', '#9a9a9a'
 

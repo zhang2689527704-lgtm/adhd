@@ -72,6 +72,10 @@ python code/emit_numbers.py
 python code/make_figures.py
 ```
 
+Fig. 2 is rendered from `figures/Fig2_source.jpg`, the typeset architecture
+diagram used in the manuscript; the remaining figures are generated from the
+result registries and prediction files.
+
 All comparisons share the same outer participant folds (seed 42), the same
 inner 20% participant split for early stopping, and normalization statistics
 computed on inner-training windows only. Training seeds are 42/43/44 for the
