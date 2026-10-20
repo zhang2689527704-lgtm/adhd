@@ -483,27 +483,27 @@ def fig6():
                              gridspec_kw={'width_ratios': [1.4, 1]})
     ax = axes[0]
     vmax = np.percentile(attn[attn > 0], 99)
-    im = ax.imshow(attn.T, aspect='auto', origin='lower', cmap='hot',
-                   extent=[0, 256, 0, 50], vmin=0, vmax=vmax)
-    ax.set_xlabel('EEG position $i$ (time)')
-    ax.set_ylabel('Gaze position $j$ (time)')
-    ax.set_title('(a) Mean cross-attention weights', fontsize=9)
+    im = ax.imshow(attn, aspect='auto', origin='upper', cmap='hot',
+                   extent=[0, 50, 256, 0], vmin=0, vmax=vmax)
+    ax.set_xlabel('Gaze position $j$ (time)\n'
+                  '(a) Mean cross-attention weights', fontsize=7.5)
+    ax.set_ylabel('EEG position $i$ (time)')
     cb = plt.colorbar(im, ax=ax, fraction=0.046)
     cb.set_label('Attention weight', fontsize=5.8)
     cb.ax.tick_params(labelsize=6)
 
     ax = axes[1]
-    t = np.arange(256) / 128.0
+    epos = np.arange(256)
     if samples is not None:
         for k, row in enumerate(samples):
-            ax.plot(t, row, color=plt.cm.tab10(k), lw=0.8, alpha=0.7,
+            ax.plot(epos, row, color=plt.cm.tab10(k), lw=0.8, alpha=0.7,
                     label=f'Sample {k + 1}')
-    ax.plot(t, mean_prof, color='k', lw=1.3, label='Mean')
-    ax.set_yscale('log')
-    ax.set_ylim(1e-2, 1.2)
-    ax.set_xlabel('Time within window (s)')
-    ax.set_ylabel('Max attention weight (log scale)')
-    ax.set_title('(b) Per-sample max attention', fontsize=9)
+    ax.plot(epos, mean_prof, color='k', lw=1.3, label='Mean')
+    ax.set_xlim(0, 255)
+    ax.set_ylim(0, 1.05)
+    ax.set_xlabel('EEG position $i$ (time)\n'
+                  '(b) Per-sample max attention', fontsize=7.5)
+    ax.set_ylabel('Max attention weight')
     ax.grid(lw=0.3, alpha=0.35)
     ax.set_axisbelow(True)
     ax.legend(fontsize=5.6, loc='upper right', frameon=False,
