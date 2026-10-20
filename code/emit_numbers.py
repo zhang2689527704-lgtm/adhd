@@ -207,7 +207,7 @@ def main():
 
     for k in ['MaxBlockedAttnFixed', 'MaxBlockedAttnLearned', 'LearnedDelayNorm',
               'LearnedDelayMs', 'LearnedBandwidth', 'SynDeltaMin', 'SynDeltaMax',
-              'VerEpochs', 'InitDelay', 'MeanRowMass']:
+              'VerEpochs', 'InitDelay', 'MeanRowMass', 'RepBandwidth']:
         L.setdefault(k, MISSING)
     L['InitDelay'] = '0.15'
     fm = ver.get('fixed_mask', {})
@@ -216,6 +216,10 @@ def main():
         L['MaxBlockedAttnFixed'] = f"{fm.get('max_attention_on_blocked', 0):.1e}"
         L['MeanRowMass'] = fmt(fm.get('mean_row_mass'), 3)
         L['VerEpochs'] = str(fm.get('train_epochs', ''))
+    hist_path = os.path.join(RESULTS, 'learned_structure_history.json')
+    if os.path.exists(hist_path):
+        hist = json.load(open(hist_path))
+        L['RepBandwidth'] = fmt(hist['bandwidth'][-1])
     if lm:
         L['MaxBlockedAttnLearned'] = f"{lm.get('max_attention_on_blocked', 0):.1e}"
         L['LearnedDelayNorm'] = fmt(lm.get('delay_normalized'))
