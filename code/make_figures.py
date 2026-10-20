@@ -745,23 +745,34 @@ def fig10():
 
 
 def fig11():
-    d = load('results_ablation.json')
-    names = [n for n in ['BandTheta', 'BandAlpha', 'BandBeta'] if n in d]
-    if not names:
-        return
-    labels = {'BandTheta': 'Theta (4-8 Hz)', 'BandAlpha': 'Alpha (8-13 Hz)',
-              'BandBeta': 'Beta (13-30 Hz)'}
-    r = [np.mean([x['r_col'] for x in d[n]['runs']]) for n in names]
-    ci = [np.std([x['r_col'] for x in d[n]['runs']], ddof=1)
-          / np.sqrt(len(d[n]['runs'])) * 2 for n in names]
+    s = load('summary.json')
+    keys = [('BandTheta', 'Theta\n(4--8 Hz)'), ('BandAlpha', 'Alpha\n(8--13 Hz)'),
+            ('BandBeta', 'Beta\n(13--30 Hz)')]
+    colors = ['#E24A33', '#348ABD', '#2CA25F']
+    rmse = [s['models'][k]['rmse_mean'] for k, _ in keys]
+    rc = [s['models'][k]['r_col_mean'] for k, _ in keys]
+    rr = [s['models'][k]['r_row_mean'] for k, _ in keys]
+    labels = [lab for _, lab in keys]
 
-    fig, ax = plt.subplots(figsize=(3.4, 2.6))
-    x = np.arange(len(names))
-    ax.bar(x, r, yerr=ci, color=[ORANGE, BLUE, GREEN], capsize=2)
-    ax.set_xticks(x)
-    ax.set_xticklabels([labels[n] for n in names], fontsize=7.5)
-    ax.set_ylabel(r'$r_{\Delta col}$')
-    ax.set_title('Single-band models (5-fold CV)', fontsize=9)
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.6))
+    panels = [(rmse, 'RMSE', '(a) RMSE'),
+              (rc, r'$r_{\Delta\mathrm{col}}$', r'(b) $\Delta$col correlation'),
+              (rr, r'$r_{\Delta\mathrm{row}}$', r'(c) $\Delta$row correlation')]
+    x = np.arange(len(keys))
+    for ax, (vals, ylab, cap) in zip(axes, panels):
+        ax.bar(x, vals, color=colors, edgecolor='k', lw=0.5, width=0.72)
+        top = max(vals)
+        for i, v in enumerate(vals):
+            ax.text(i, v + 0.02 * top, f'{v:.3f}', ha='center',
+                    va='bottom', fontsize=6.4)
+        ax.set_ylim(0, top * 1.18)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=6.0)
+        ax.set_ylabel(ylab, fontsize=8)
+        ax.set_xlabel(cap, fontsize=8)
+        ax.grid(axis='y', lw=0.3, alpha=0.35)
+        ax.set_axisbelow(True)
+        ax.tick_params(labelsize=6.8, pad=2)
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig11.pdf'))
     plt.close(fig)
