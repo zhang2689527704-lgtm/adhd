@@ -17,5 +17,9 @@
   "target_row_mean": 0.028605211526155472,
   "target_row_std": 0.7739978432655334,
   "var_ratio": 19.000778198242188,
-  "ptp_threshold_uv": 250
+  "ptp_threshold_uv": 250,
+  "age_adhd_mean": 11.416666666666666,
+  "age_adhd_sd": 2.9154759474226504,
+  "age_control_mean": 14.131578947368421,
+  "age_control_sd": 4.147099622312279
 }

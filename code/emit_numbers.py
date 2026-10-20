@@ -80,6 +80,10 @@ def main():
         L['TgtRowStd'] = fmt(float(stats['target_row_std']), 2)
         L['VarRatio'] = fmt(float(stats['var_ratio']), 1)
         L['PtpThreshold'] = str(stats['ptp_threshold_uv'])
+        L['AgeAdhdMean'] = fmt(float(stats['age_adhd_mean']), 1)
+        L['AgeAdhdSd'] = fmt(float(stats['age_adhd_sd']), 1)
+        L['AgeControlMean'] = fmt(float(stats['age_control_mean']), 1)
+        L['AgeControlSd'] = fmt(float(stats['age_control_sd']), 1)
 
     try:
         demo_path = os.path.join(HERE, '..', 'DATA',
