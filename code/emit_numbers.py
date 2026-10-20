@@ -57,6 +57,30 @@ def main():
 
     L = {}
 
+    # Dataset-level statistics stored with the release.  These allow the
+    # demographic macros to be regenerated without the 246 MB window cache.
+    stats = load('dataset_stats.json', {}) or {}
+    if stats:
+        L['ParticipantsListed'] = str(stats['participants_listed'])
+        L['Participants'] = str(stats['participants'])
+        L['ParticipantsQC'] = str(stats['participants_qc'])
+        L['Adhd'] = str(stats['adhd'])
+        L['Control'] = str(stats['control'])
+        L['Undetermined'] = str(stats['undetermined'])
+        L['WindowsTotal'] = f"{stats['windows_total']:,}".replace(',', r'\,' )
+        L['WindowsQC'] = f"{stats['windows_qc']:,}".replace(',', r'\,' )
+        L['PctWindowsQC'] = fmt(float(stats['pct_windows_qc']), 1)
+        L['DurMedian'] = fmt(float(stats['duration_median_sec']), 0)
+        L['GazeMedian'] = str(int(stats['gaze_median']))
+        L['GazePfive'] = str(int(stats['gaze_p5']))
+        L['GazePninetyfive'] = str(int(stats['gaze_p95']))
+        L['TgtColMean'] = fmt(float(stats['target_col_mean']), 2)
+        L['TgtColStd'] = fmt(float(stats['target_col_std']), 2)
+        L['TgtRowMean'] = fmt(float(stats['target_row_mean']), 2)
+        L['TgtRowStd'] = fmt(float(stats['target_row_std']), 2)
+        L['VarRatio'] = fmt(float(stats['var_ratio']), 1)
+        L['PtpThreshold'] = str(stats['ptp_threshold_uv'])
+
     try:
         demo_path = os.path.join(HERE, '..', 'DATA',
                                  'BALLADEER ADHD DATASET',
