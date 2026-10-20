@@ -828,7 +828,7 @@ def fig12():
     ax.set_xticks(x)
     ax.set_xticklabels([labels[n] for n in names], fontsize=7)
     ax.set_ylabel(r'$r_{\Delta col}$')
-    ax.set_title('(a) Alignment-dependence (CV)', fontsize=9)
+    ax.set_xlabel('(a) Alignment-dependence (CV)', fontsize=7.5, labelpad=4)
 
     ax = axes[1]
     a = seed_avg_preds('main', 'TempAlignEEGNet')
@@ -845,9 +845,10 @@ def fig12():
         lim = [min(min(pa[p], pb[p]) for p in common) - 0.05,
                max(max(pa[p], pb[p]) for p in common) + 0.05]
         ax.plot(lim, lim, 'k--', lw=0.7)
-        ax.set_xlabel('Permuted-EEG model $r$ (per participant)')
+        ax.set_xlabel('Permuted-EEG model $r$ (per participant)\n'
+                      '(b) Participant-level pairing', fontsize=7.5,
+                      labelpad=3)
         ax.set_ylabel('Full model $r$ (per participant)')
-        ax.set_title('(b) Participant-level pairing', fontsize=9)
     fig.tight_layout()
     fig.savefig(os.path.join(FIGURES, 'Fig12.pdf'))
     plt.close(fig)
@@ -860,7 +861,7 @@ def fig13():
     rr = np.array([float(r['r_row']) for r in rows])
     pooled = load('summary.json')['models']['TempAlignEEGNet']['pooled']
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.7))
-    fig.subplots_adjust(left=0.07, right=0.98, top=0.90, bottom=0.18,
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.90, bottom=0.25,
                         wspace=0.28)
     for ax, v, lab, tag, pk in [(axes[0], rc, 'col', 'a', 'r_col'),
                                 (axes[1], rr, 'row', 'b', 'r_row')]:
@@ -869,10 +870,9 @@ def fig13():
                    label=f'Mean = {v.mean():.3f}')
         ax.axvline(pooled[pk], color=GREEN, ls='--', lw=1.2,
                    label=f'Overall = {pooled[pk]:.3f}')
-        ax.set_title(rf'({tag}) $r_{{\Delta\mathrm{{{lab}}}}}$ distribution '
-                     f'(n = {len(v)})', fontsize=8.5)
-        ax.set_xlabel(rf'Per-participant $r_{{\Delta\mathrm{{{lab}}}}}$',
-                      fontsize=7.5)
+        ax.set_xlabel(rf'Per-participant $r_{{\Delta\mathrm{{{lab}}}}}$' '\n'
+                      rf'({tag}) $r_{{\Delta\mathrm{{{lab}}}}}$ distribution '
+                      f'(n = {len(v)})', fontsize=7.5, labelpad=3)
         ax.set_ylabel('Count', fontsize=7.5)
         ax.grid(lw=0.3, alpha=0.35)
         ax.set_axisbelow(True)
