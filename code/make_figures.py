@@ -741,34 +741,60 @@ def fig9():
 
 def fig10():
     res = load('lagged_analysis.json')
-    imp = 100.0 * np.array([r['gaze_to_eeg_imp'] for r in res])
-    p = np.array([r['gaze_to_eeg_p'] for r in res])
+    imp_f = 100.0 * np.array([r['eeg_to_gaze_imp'] for r in res])
+    imp_r = 100.0 * np.array([r['gaze_to_eeg_imp'] for r in res])
+    p_f = np.array([r['eeg_to_gaze_p'] for r in res])
+    p_r = np.array([r['gaze_to_eeg_p'] for r in res])
     n = len(res)
-    sig = int((p < 0.05).sum())
+    med = [float(np.median(imp_f)), float(np.median(imp_r))]
+    sig = [int((p_f < 0.05).sum()), int((p_r < 0.05).sum())]
+    pmed = [float(np.median(p_f)), float(np.median(p_r))]
+    labels = ['EEG$\\to$gaze', 'Gaze$\\to$EEG']
+    colors = [RED, GRAY]
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6))
-    fig.subplots_adjust(left=0.09, right=0.98, top=0.95, bottom=0.22,
-                        wspace=0.5)
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.7))
+    fig.subplots_adjust(left=0.07, right=0.99, top=0.95, bottom=0.24,
+                        wspace=0.45)
+    x = np.arange(2)
 
     ax = axes[0]
-    bp = ax.boxplot([imp], patch_artist=True, widths=0.45, showfliers=False)
-    bp['boxes'][0].set_facecolor(GRAY)
-    bp['boxes'][0].set_alpha(0.55)
+    ax.bar(x, med, color=colors, edgecolor='black', linewidth=0.5, width=0.6)
     ax.axhline(0, color='k', lw=0.6)
-    ax.set_ylabel('MSE improvement (%)')
-    ax.set_xticks([1])
-    ax.set_xticklabels(['Gaze$\\to$EEG'])
-    ax.set_xlabel('(a) Lagged gaze$\\to$EEG\n'
-                  f'median {np.median(imp):+.1f}%, {sig}/{n} sig.',
-                  fontsize=6.5)
+    for i, v in enumerate(med):
+        ax.annotate(f'{v:+.1f}', (i, v), xytext=(0, 3),
+                    textcoords='offset points', ha='center', va='bottom',
+                    fontsize=6.2)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=6.8)
+    ax.set_ylabel('Median improvement (%)', fontsize=7.5)
+    ax.set_xlabel('(a) Relative MSE improvement', fontsize=7.5, labelpad=5)
+    ax.set_ylim(min(med) - 0.6, 0.35)
 
     ax = axes[1]
-    ax.axvspan(0, 0.05, color=RED, alpha=0.08, lw=0)
-    ax.hist(p, bins=np.linspace(0, 1, 21), color=GRAY, alpha=0.75,
-            edgecolor='black', linewidth=0.35)
-    ax.axvline(0.05, color=RED, ls='--', lw=1)
-    ax.set_xlabel('Permutation $p$-value\n(b) Null check', fontsize=6.5)
-    ax.set_ylabel('Participants')
+    ax.bar(x, sig, color=colors, edgecolor='black', linewidth=0.5, width=0.6)
+    for i, v in enumerate(sig):
+        ax.annotate(f'{v}', (i, v), xytext=(0, 3),
+                    textcoords='offset points', ha='center', va='bottom',
+                    fontsize=6.4)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=6.8)
+    ax.set_ylabel(f'Participants (of {n})', fontsize=7.5)
+    ax.set_xlabel('(b) Significant ($p<0.05$)', fontsize=7.5, labelpad=5)
+    ax.set_ylim(0, max(sig) * 1.28)
+
+    ax = axes[2]
+    ax.bar(x, pmed, color=colors, edgecolor='black', linewidth=0.5, width=0.6)
+    for i, v in enumerate(pmed):
+        ax.annotate(f'{v:.3f}', (i, v), xytext=(0, 3),
+                    textcoords='offset points', ha='center', va='bottom',
+                    fontsize=6.2)
+    ax.axhline(0.05, color=RED, ls='--', lw=1)
+    ax.text(0.5, 0.09, '$p=0.05$', color=RED, fontsize=6.2, ha='center')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=6.8)
+    ax.set_ylabel('Median permutation $p$', fontsize=7.5)
+    ax.set_xlabel('(c) Permutation $p$-value', fontsize=7.5, labelpad=5)
+    ax.set_ylim(0, 0.8)
 
     for ax in axes:
         ax.tick_params(labelsize=7, pad=2)
