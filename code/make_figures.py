@@ -724,10 +724,11 @@ def fig9():
 
     ax = axes[1]
     bins = np.linspace(0, 1, 21)
-    ax.hist(p1, bins=bins, alpha=0.55, color=BLUE,
-            label='EEG$\\rightarrow$gaze')
-    ax.hist(p2, bins=bins, alpha=0.55, color=ORANGE,
-            label='Gaze$\\rightarrow$EEG')
+    ax.axvspan(0, 0.05, color=RED, alpha=0.08, lw=0)
+    ax.hist(p1, bins=bins, alpha=0.65, color=BLUE, edgecolor='black',
+            linewidth=0.35, label='EEG$\\rightarrow$gaze')
+    ax.hist(p2, bins=bins, alpha=0.55, color=ORANGE, edgecolor='black',
+            linewidth=0.35, label='Gaze$\\rightarrow$EEG')
     ax.axvline(0.05, color=RED, ls='--', lw=1, label='p=0.05')
     ax.set_xlabel('Permutation p-value\n(b) Null distribution check',
                   fontsize=7.5, labelpad=4)
@@ -751,8 +752,8 @@ def fig10():
 
     ax = axes[0]
     bp = ax.boxplot([imp], patch_artist=True, widths=0.45, showfliers=False)
-    bp['boxes'][0].set_facecolor(ORANGE)
-    bp['boxes'][0].set_alpha(0.6)
+    bp['boxes'][0].set_facecolor(GRAY)
+    bp['boxes'][0].set_alpha(0.55)
     ax.axhline(0, color='k', lw=0.6)
     ax.set_ylabel('MSE improvement (%)')
     ax.set_xticks([1])
@@ -762,7 +763,9 @@ def fig10():
                   fontsize=6.5)
 
     ax = axes[1]
-    ax.hist(p, bins=np.linspace(0, 1, 21), color=ORANGE, alpha=0.75)
+    ax.axvspan(0, 0.05, color=RED, alpha=0.08, lw=0)
+    ax.hist(p, bins=np.linspace(0, 1, 21), color=GRAY, alpha=0.75,
+            edgecolor='black', linewidth=0.35)
     ax.axvline(0.05, color=RED, ls='--', lw=1)
     ax.set_xlabel('Permutation $p$-value\n(b) Null check', fontsize=6.5)
     ax.set_ylabel('Participants')
@@ -823,7 +826,12 @@ def fig12():
     fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.6))
     ax = axes[0]
     x = np.arange(len(names))
-    ax.bar(x, r, yerr=ci, color=[RED, '#8C8C8C', '#9DC3E6'][:len(names)], capsize=2)
+    ax.bar(x, r, yerr=ci, color=[RED, '#8C8C8C', '#9DC3E6'][:len(names)],
+           edgecolor='black', linewidth=0.5, capsize=2)
+    for i, (v, e) in enumerate(zip(r, ci)):
+        ax.text(i, v + e + 0.008, f'{v:.3f}', ha='center', va='bottom',
+                fontsize=6.2)
+    ax.set_ylim(-0.03, max(v + e for v, e in zip(r, ci)) * 1.18)
     ax.axhline(0, color='k', lw=0.6)
     ax.set_xticks(x)
     ax.set_xticklabels([labels[n] for n in names], fontsize=7)
@@ -844,7 +852,7 @@ def fig12():
                    s=8, alpha=0.5, color=BLUE)
         lim = [min(min(pa[p], pb[p]) for p in common) - 0.05,
                max(max(pa[p], pb[p]) for p in common) + 0.05]
-        ax.plot(lim, lim, 'k--', lw=0.7)
+        ax.plot(lim, lim, 'r--', lw=0.8)
         ax.set_xlabel('Permuted-EEG model $r$ (per participant)\n'
                       '(b) Participant-level pairing', fontsize=7.5,
                       labelpad=3)
